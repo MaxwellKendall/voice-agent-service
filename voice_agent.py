@@ -1,7 +1,9 @@
 import os
+import queue
+import threading
+import numpy as np
 import sounddevice as sd
 import soundfile as sf
-import numpy as np
 from scipy.io.wavfile import write as write_wav
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -14,26 +16,47 @@ class VoiceAgent:
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.sample_rate = 44100
         self.channels = 1
+        self.block_size = 4096
         
-    def record_audio(self, duration=5):
-        """Record audio from microphone"""
-        print("Recording...")
-        recording = sd.rec(
-            int(duration * self.sample_rate),
+    def stream_audio(self, duration=5):
+        """Stream audio from microphone for a fixed duration"""
+        print("\nRecording for", duration, "seconds...")
+        
+        # Calculate total frames needed
+        total_frames = int(duration * self.sample_rate)
+        frames_read = 0
+        audio_data = []
+        
+        def callback(indata, frames, time, status):
+            nonlocal frames_read
+            if status:
+                print(f"Status: {status}")
+            audio_data.append(indata.copy())
+            frames_read += frames
+            remaining = duration - (frames_read / self.sample_rate)
+            if remaining > 0:
+                print(f"\rRecording... {remaining:.1f}s remaining", end="", flush=True)
+        
+        stream = sd.InputStream(
+            channels=self.channels,
             samplerate=self.sample_rate,
-            channels=self.channels
+            blocksize=self.block_size,
+            callback=callback
         )
-        sd.wait()
-        print("Recording finished")
-        return recording
+        
+        with stream:
+            sd.sleep(int(duration * 1000))
+        
+        print("\nProcessing...")
+        return np.concatenate(audio_data)
     
     def save_audio(self, recording, filename="input.wav"):
         """Save recorded audio to file"""
         write_wav(filename, self.sample_rate, recording)
         return filename
     
-    def transcribe_audio(self, audio_file):
-        """Transcribe audio using OpenAI's Whisper model"""
+    def stream_transcribe(self, audio_file):
+        """Stream transcribe audio using OpenAI's Whisper model"""
         with open(audio_file, "rb") as file:
             transcript = self.client.audio.transcriptions.create(
                 model="whisper-1",
@@ -41,57 +64,81 @@ class VoiceAgent:
             )
         return transcript.text
     
-    def get_ai_response(self, text):
-        """Get response from OpenAI's GPT model"""
-        response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo",
+    def stream_response(self, text):
+        """Stream response from OpenAI's GPT model"""
+        response_stream = self.client.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful voice assistant."},
                 {"role": "user", "content": text}
-            ]
+            ],
+            stream=True
         )
-        return response.choices[0].message.content
+        
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                full_response += content
+                print(content, end="", flush=True)
+        print()
+        return full_response
     
-    def text_to_speech(self, text, output_file="output.wav"):
-        """Convert text to speech using OpenAI's TTS model"""
+    def stream_tts_and_play(self, text):
+        """Stream TTS conversion and play audio in real-time"""
         response = self.client.audio.speech.create(
             model="tts-1",
             voice="alloy",
             input=text
         )
-        with open(output_file, 'wb') as file:
+        
+        # Save the audio to a temporary file
+        temp_file = "temp.wav"
+        with open(temp_file, "wb") as f:
             for chunk in response.iter_bytes():
-                file.write(chunk)
-        return output_file
-    
-    def play_audio(self, audio_file):
-        """Play audio file"""
-        data, samplerate = sf.read(audio_file)
+                f.write(chunk)
+        
+        # Play the audio
+        data, samplerate = sf.read(temp_file)
         sd.play(data, samplerate)
         sd.wait()
+        
+        # Clean up temporary file
+        os.remove(temp_file)
 
 def main():
     agent = VoiceAgent()
     
-    # Record audio
-    recording = agent.record_audio(duration=5)
-    
-    # Save the recording
-    input_file = agent.save_audio(recording)
-    
-    # Transcribe the audio
-    transcript = agent.transcribe_audio(input_file)
-    print(f"Transcription: {transcript}")
-    
-    # Get AI response
-    response = agent.get_ai_response(transcript)
-    print(f"AI Response: {response}")
-    
-    # Convert response to speech
-    output_file = agent.text_to_speech(response)
-    
-    # Play the response
-    agent.play_audio(output_file)
+    while True:
+        try:
+            # Stream audio input
+            recording = agent.stream_audio(duration=5)
+            
+            # Save the recording (temporary, for Whisper API)
+            input_file = agent.save_audio(recording)
+            
+            # Stream transcribe the audio
+            transcript = agent.stream_transcribe(input_file)
+            print(f"\nTranscription: {transcript}")
+            
+            # Stream get AI response
+            print("\nAI Response:")
+            response = agent.stream_response(transcript)
+            
+            # Stream TTS and play
+            agent.stream_tts_and_play(response)
+            
+            # Clean up temporary file
+            os.remove(input_file)
+            
+            print("\nReady for next input...")
+            
+        except KeyboardInterrupt:
+            print("\nStopping voice agent...")
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+            continue
 
 if __name__ == "__main__":
     main() 
