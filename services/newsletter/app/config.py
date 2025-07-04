@@ -33,6 +33,17 @@ def get_serpapi_key() -> Optional[str]:
     """Get SerpAPI key from environment."""
     return os.getenv("SERPAPI_API_KEY")
 
+def get_mongodb_uri() -> str:
+    """Get MongoDB connection URI from environment."""
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        raise ValueError("MONGODB_URI environment variable is required")
+    return uri
+
+def get_mongodb_database() -> str:
+    """Get MongoDB database name from environment."""
+    return os.getenv("MONGODB_DATABASE", "newsletter_agent")
+
 # Application settings
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
