@@ -1,4 +1,21 @@
-# 🔧 Components
+# 🗺️ High-Performance Voice Agent Backend - Roadmap
+
+## 🎯 Goal
+Enable ultra-fast 1:1 real-time communication between iPhone and AI agent using WebRTC, OpenAI, and Python — with <1s end-to-end latency.
+
+---
+
+## 📐 System Overview
+iPhone WebRTC Mic 🔊
+⇅ Signaling (WebSocket - Go)
+⇅ Media (Pion WebRTC - Go)
+⇅ Audio to Python Agent (Redis or UNIX socket)
+⇅ Agent (Whisper → OpenAI → TTS)
+⇅ Audio Stream to iPhone (HTTP2 / WebSocket)
+
+---
+
+## 🔧 Components
 
 | Layer             | Tech                        | Purpose                                 |
 |------------------|-----------------------------|-----------------------------------------|
