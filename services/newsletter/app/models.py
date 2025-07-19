@@ -37,6 +37,10 @@ class ChatInfo(BaseModel):
     """Model for chat information."""
     id: str = Field(..., description="Chat unique identifier")
     title: str = Field(..., description="Chat title")
+    prompt: Optional[str] = Field(
+        default=None, 
+        description="Newsletter generation prompt for this chat session"
+    )
     created_at: datetime = Field(..., description="Chat creation timestamp")
     updated_at: datetime = Field(..., description="Chat last update timestamp")
     message_count: int = Field(..., description="Number of messages in the chat")

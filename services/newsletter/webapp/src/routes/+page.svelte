@@ -2,13 +2,16 @@
 	import { onMount } from 'svelte';
 	import { marked } from 'marked';
 	import { 
-		chatMessages, 
+	    chatState, 
 		newsletterState, 
 		chatHistoryForAPI,
+		promptState,
 		addMessage, 
 		setNewsletterMarkdown, 
 		updateNewsletterMarkdown, 
-		resetToChat 
+		resetToChat,
+		updatePrompt,
+		togglePromptVisibility
 	} from '$lib/stores.js';
 	import { generateNewsletterFromChat, sendMessageAndGetResponse } from '$lib/utils.js';
 
@@ -32,10 +35,8 @@
 	// Handle generating newsletter
 	async function handleGenerateNewsletter() {
 		if (isGenerating) return;
-		
 		isGenerating = true;
-		const chatHistory = $chatHistoryForAPI;
-		const markdown = await generateNewsletterFromChat(chatHistory);
+		const markdown = await generateNewsletterFromChat($promptState.prompt);
 		setNewsletterMarkdown(markdown);
 		isGenerating = false;
 	}
@@ -74,8 +75,41 @@
 		</button>
 	</div>
 
+	<!-- Prompt Editor (Fixed Position) -->
+	<div class="fixed top-4 left-4 z-50">
+		<button
+			on:click={togglePromptVisibility}
+			class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium shadow-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+		>
+			{$promptState.isVisible ? 'Hide' : 'Show'} Prompt Editor
+		</button>
+	</div>
+
+	<!-- Prompt Editor Panel -->
+	{#if $promptState.isVisible}
+		<div class="fixed top-16 left-4 z-40 w-96 max-h-[calc(100vh-5rem)] bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+			<div class="bg-gray-800 text-white px-4 py-3">
+				<h3 class="text-lg font-semibold">Newsletter Prompt Editor</h3>
+				<p class="text-sm text-gray-300">Customize how newsletters are generated</p>
+			</div>
+			<div class="p-4 h-[calc(100vh-8rem)] overflow-y-auto">
+				<label for="prompt-editor" class="block text-sm font-medium text-gray-700 mb-2">
+					Newsletter Generation Prompt
+				</label>
+				<textarea
+					id="prompt-editor"
+					bind:value={$promptState.prompt}
+					on:input={(e) => updatePrompt(e.currentTarget.value)}
+					class="w-full h-full p-3 border border-gray-300 rounded-md font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+					placeholder="Enter your newsletter generation prompt..."
+					rows="20"
+				></textarea>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Main Content -->
-	<div class="container mx-auto px-4 py-8 max-w-6xl">
+	<div class="container mx-auto px-4 py-8 max-w-6xl {$promptState.isVisible ? 'ml-96' : ''}">
 		{#if $newsletterState.isEditing}
 			<!-- Newsletter Editor View -->
 			<div class="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -130,7 +164,7 @@
 
 				<!-- Messages Area -->
 				<div class="flex-1 overflow-y-auto p-4 space-y-4">
-					{#each $chatMessages as message (message.id)}
+					{#each $chatState.messages as message (message.id)}
 						<div class="flex {message.isUser ? 'justify-end' : 'justify-start'}">
 							<div class="max-w-[70%]">
 								<div class="px-4 py-2 rounded-lg {message.isUser ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}">

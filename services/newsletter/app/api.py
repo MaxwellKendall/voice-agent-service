@@ -55,7 +55,7 @@ async def chat(request: ChatRequest):
         chat_service = get_chat_service()
         
         # Handle chat ID - create new chat if none provided
-        if request.chat_id is None:
+        if request.chat_id is None or request.chat_id == '':
             # Create a new chat
             chat_id = await chat_service.create_chat()
             logger.info(f"Created new chat with ID: {chat_id}")
@@ -119,6 +119,7 @@ async def get_chats():
             chat_list.append(ChatInfo(
                 id=chat["_id"],
                 title=chat["title"],
+                prompt=chat.get("prompt"),
                 created_at=chat["created_at"],
                 updated_at=chat["updated_at"],
                 message_count=chat["message_count"]
@@ -163,6 +164,7 @@ async def get_chat(chat_id: str):
             "chat": {
                 "id": chat["_id"],
                 "title": chat["title"],
+                "prompt": chat.get("prompt"),
                 "created_at": chat["created_at"],
                 "updated_at": chat["updated_at"],
                 "message_count": chat["message_count"]
@@ -205,6 +207,38 @@ async def delete_chat(chat_id: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting chat {chat_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+@app.put("/chats/{chat_id}/prompt")
+async def update_chat_prompt(chat_id: str, prompt: str):
+    """
+    Update the newsletter generation prompt for a chat.
+    
+    Args:
+        chat_id: The chat ID
+        prompt: The newsletter generation prompt
+        
+    Returns:
+        Success message
+    """
+    try:
+        logger.info(f"Updating prompt for chat: {chat_id}")
+        
+        chat_service = get_chat_service()
+        success = await chat_service.update_chat_prompt(chat_id, prompt)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        return {"message": "Chat prompt updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating prompt for chat {chat_id}: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"

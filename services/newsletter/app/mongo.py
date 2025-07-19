@@ -47,12 +47,13 @@ class ChatService:
         self.chats_collection = self.db.chats
         self.messages_collection = self.db.messages
     
-    async def create_chat(self, title: str = None) -> str:
+    async def create_chat(self, title: str = None, prompt: str = None) -> str:
         """
         Create a new chat session.
         
         Args:
             title: Optional title for the chat
+            prompt: Optional newsletter generation prompt
             
         Returns:
             The chat ID as a string
@@ -60,6 +61,7 @@ class ChatService:
         try:
             chat_doc = {
                 "title": title or f"Chat {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
+                "prompt": prompt,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
                 "message_count": 0
@@ -233,6 +235,35 @@ class ChatService:
             
         except Exception as e:
             logger.error(f"Error updating chat title for {chat_id}: {e}")
+            return False
+    
+    async def update_chat_prompt(self, chat_id: str, prompt: str) -> bool:
+        """
+        Update the newsletter generation prompt of a chat.
+        
+        Args:
+            chat_id: The chat ID
+            prompt: The new newsletter generation prompt
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            result = await self.chats_collection.update_one(
+                {"_id": ObjectId(chat_id)},
+                {"$set": {"prompt": prompt, "updated_at": datetime.utcnow()}}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Updated chat prompt for {chat_id}")
+            else:
+                logger.warning(f"Chat {chat_id} not found for prompt update")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error updating chat prompt for {chat_id}: {e}")
             return False
     
     async def delete_chat(self, chat_id: str) -> bool:

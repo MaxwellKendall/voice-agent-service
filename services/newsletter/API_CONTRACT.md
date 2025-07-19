@@ -15,6 +15,7 @@ The AI Recipe Agent API is designed to help users explore recipes and cooking to
 | `POST` | `/chat` | Chat with AI agent (newsletter-focused) | `{"message": "string", "chat_id": "string"}` | `{"response": "string", "chat_id": "string", "recipes": [...], "tool_calls": [...]}` |
 | `GET` | `/chats` | Get all chat sessions | None | `{"chats": [...]}` |
 | `GET` | `/chats/{chat_id}` | Get specific chat with messages | None | `{"chat": {...}, "messages": [...]}` |
+| `PUT` | `/chats/{chat_id}/prompt` | Update newsletter generation prompt | `"string"` | `{"message": "Chat prompt updated successfully"}` |
 | `DELETE` | `/chats/{chat_id}` | Delete a chat session | None | `{"message": "Chat deleted successfully"}` |
 | `GET` | `/tools` | List available tools | None | `{"tools": [...]}` |
 
@@ -68,6 +69,7 @@ The AI Recipe Agent API is designed to help users explore recipes and cooking to
     {
       "id": "507f1f77bcf86cd799439011",
       "title": "Mexican Cooking Session",
+      "prompt": "Create a newsletter about Mexican cuisine with recipes and cooking tips",
       "created_at": "2024-01-15T10:30:00.000Z",
       "updated_at": "2024-01-15T11:45:00.000Z",
       "message_count": 8
@@ -75,6 +77,7 @@ The AI Recipe Agent API is designed to help users explore recipes and cooking to
     {
       "id": "507f1f77bcf86cd799439012",
       "title": "Italian Pasta Recipes",
+      "prompt": "Generate a newsletter focused on Italian pasta dishes and techniques",
       "created_at": "2024-01-14T09:15:00.000Z",
       "updated_at": "2024-01-14T10:20:00.000Z",
       "message_count": 6
@@ -91,6 +94,7 @@ The AI Recipe Agent API is designed to help users explore recipes and cooking to
   "chat": {
     "id": "507f1f77bcf86cd799439011",
     "title": "Mexican Cooking Session",
+    "prompt": "Create a newsletter about Mexican cuisine with recipes and cooking tips",
     "created_at": "2024-01-15T10:30:00.000Z",
     "updated_at": "2024-01-15T11:45:00.000Z",
     "message_count": 8
@@ -222,6 +226,13 @@ curl http://localhost:8000/chats/507f1f77bcf86cd799439011
 **Delete Chat:**
 ```bash
 curl -X DELETE http://localhost:8000/chats/507f1f77bcf86cd799439011
+```
+
+**Update Chat Prompt:**
+```bash
+curl -X PUT http://localhost:8000/chats/507f1f77bcf86cd799439011/prompt \
+  -H "Content-Type: application/json" \
+  -d '"Create a comprehensive newsletter about Mexican cuisine with recipes, cooking tips, and cultural insights"'
 ```
 
 **List Tools:**
