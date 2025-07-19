@@ -11,6 +11,10 @@ class ChatRequest(BaseModel):
         default=None, 
         description="Chat ID to continue conversation. If null, creates a new chat."
     )
+    prompt: Optional[str] = Field(
+        default=None,
+        description="Newsletter generation prompt for this chat session"
+    )
 
 class RecipeInfo(BaseModel):
     """Model for recipe information."""

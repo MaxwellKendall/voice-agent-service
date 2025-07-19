@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { marked } from 'marked';
 
 	// Override link renderer to add target="_blank" and rel="noopener noreferrer"
@@ -15,13 +16,19 @@
 		newsletterState, 
 		chatHistoryForAPI,
 		promptState,
+		chatHistoryState,
 		addMessage, 
 		setNewsletterMarkdown, 
 		updateNewsletterMarkdown, 
 		resetToChat,
-		updatePrompt
+		updatePrompt,
+		setPromptFromChat,
+		debouncedUpdatePrompt,
+		setChatHistory,
+		clearChat,
+		type ChatInfo
 	} from '$lib/stores.js';
-	import { generateNewsletterFromChat, sendMessageAndGetResponse } from '$lib/utils.js';
+	import { generateNewsletterFromChat, sendMessageAndGetResponse, loadChatHistory, loadChat, updateChatPrompt } from '$lib/utils.js';
 	
 	const API_BASE_URL = 'http://localhost:8000';
 	import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -47,7 +54,7 @@
 		isSending = false;
 		
 		// Refresh chat history to show the updated chat
-		loadChatHistory();
+		loadChatHistoryData();
 	}
 
 	// Handle generating newsletter
@@ -81,13 +88,17 @@
 	}
 
 	// Load chat history
-	async function loadChatHistory() {
+	async function loadChatHistoryData() {
 		isLoadingChats = true;
 		try {
-			const response = await fetch(`${API_BASE_URL}/chats`);
-			if (response.ok) {
-				const data = await response.json();
-				chatHistory = data.chats || [];
+			const chats = await loadChatHistory();
+			setChatHistory(chats);
+			chatHistory = chats;
+			
+			// If we have a selected chat, ensure its prompt is loaded
+			const currentChatId = get(chatState).chatId;
+			if (currentChatId) {
+				loadPromptForChat(currentChatId);
 			}
 		} catch (error) {
 			console.error('Error loading chat history:', error);
@@ -96,35 +107,65 @@
 		}
 	}
 
+	// Helper function to load prompt for a chat
+	function loadPromptForChat(chatId: string) {
+		const chatHistory = get(chatHistoryState);
+		const selectedChat = chatHistory.find((chat: ChatInfo) => chat.id === chatId);
+		if (selectedChat && selectedChat.prompt) {
+			setPromptFromChat(selectedChat);
+		}
+	}
+
 	// Load a specific chat
-	async function loadChat(chatId: string) {
+	async function loadChatData(chatId: string) {
 		try {
-			const response = await fetch(`${API_BASE_URL}/chats/${chatId}`);
-			if (response.ok) {
-				const data = await response.json();
-				
+			const chatData = await loadChat(chatId);
+			if (chatData) {
 				// Clear current chat
-				chatState.set({ messages: [], chatId: chatId });
+				clearChat();
 				
 				// Load messages from the selected chat
-				if (data.messages) {
-					data.messages.forEach((msg: any) => {
+				if (chatData.messages) {
+					chatData.messages.forEach((msg: any) => {
 						addMessage(msg.content, msg.role === 'user');
 					});
 				}
 				
 				// Update chat ID
 				chatState.update(state => ({ ...state, chatId: chatId }));
+				
+				// Set prompt from chat if available, otherwise try chat history
+				if (chatData.prompt) {
+					setPromptFromChat({ id: chatId, title: '', prompt: chatData.prompt, created_at: '', updated_at: '', message_count: 0 });
+				} else {
+					loadPromptForChat(chatId);
+				}
 			}
 		} catch (error) {
 			console.error('Error loading chat:', error);
 		}
 	}
 
+	// Handle prompt changes with debouncing
+	function handlePromptChange(event: Event) {
+		const target = event.target as HTMLTextAreaElement;
+		const newPrompt = target.value;
+		
+		// Use debounced update to save to backend
+		if ($chatState.chatId) {
+			debouncedUpdatePrompt(newPrompt, async (prompt) => {
+				await updateChatPrompt($chatState.chatId, prompt);
+			});
+		} else {
+			// For new chats, just update local state
+			updatePrompt(newPrompt);
+		}
+	}
+
 	// Initialize with a welcome message and load chat history
 	onMount(() => {
 		addMessage("Hello! I'm your AI recipe assistant. I can help you find recipes, cooking tips, and even generate newsletters from our conversations. What would you like to cook today?", false);
-		loadChatHistory();
+		loadChatHistoryData();
 	});
 </script>
 
@@ -175,7 +216,7 @@
 				<div class="flex items-center justify-between mb-3">
 					<h3 class="text-sm font-medium text-gray-700">Chat History</h3>
 					<button
-						on:click={loadChatHistory}
+						on:click={loadChatHistoryData}
 						disabled={isLoadingChats}
 						class="text-gray-400 hover:text-gray-600 transition-colors duration-200"
 						title="Refresh chat history"
@@ -196,7 +237,7 @@
 					<div class="space-y-2 overflow-y-auto">
 						{#each chatHistory as chat (chat.id)}
 							<button
-								on:click={() => loadChat(chat.id)}
+								on:click={() => loadChatData(chat.id)}
 								class="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer {chat.id === $chatState.chatId ? 'bg-blue-50 border border-blue-200' : ''}"
 							>
 								<div class="text-sm font-medium text-gray-900 truncate">{chat.title}</div>
@@ -427,14 +468,22 @@
 						<textarea
 							id="prompt-editor"
 							bind:value={$promptState.prompt}
-							on:input={(e) => updatePrompt(e.currentTarget.value)}
+							on:input={handlePromptChange}
 							class="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 							placeholder="Enter your newsletter generation prompt..."
 							style="min-height: 24rem; max-height: 60rem;"
-						>{$promptState.prompt}</textarea>
-						<p class="mt-2 text-sm text-gray-600">
-							This prompt will be used to generate newsletters from your chat conversations.
-						</p>
+						></textarea>
+						<div class="mt-2 flex items-center justify-between">
+							<p class="text-sm text-gray-600">
+								This prompt will be used to generate newsletters from your chat conversations.
+							</p>
+							{#if $promptState.isEditing}
+								<div class="flex items-center text-sm text-blue-600">
+									<FontAwesomeIcon icon={faSpinner} class="animate-spin h-4 w-4 mr-2" />
+									Saving...
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>

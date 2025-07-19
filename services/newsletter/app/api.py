@@ -56,8 +56,8 @@ async def chat(request: ChatRequest):
         
         # Handle chat ID - create new chat if none provided
         if request.chat_id is None or request.chat_id == '':
-            # Create a new chat
-            chat_id = await chat_service.create_chat()
+            # Create a new chat with prompt if provided
+            chat_id = await chat_service.create_chat(prompt=request.prompt)
             logger.info(f"Created new chat with ID: {chat_id}")
         else:
             # Verify existing chat exists
