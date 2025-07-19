@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { marked } from 'marked';
+
+	// Override link renderer to add target="_blank" and rel="noopener noreferrer"
+	const renderer = {
+		link({ href, title, text }: { href: string; title?: string | null; text: string }) {
+			return `<a href="${href}" target="_blank" rel="noopener noreferrer" title="${title || ''}">${text}</a>`;
+		}
+	};
+
+	marked.use({ renderer });
 	import { 
 		chatState, 
 		newsletterState, 
