@@ -13,6 +13,8 @@
 		updatePrompt
 	} from '$lib/stores.js';
 	import { generateNewsletterFromChat, sendMessageAndGetResponse } from '$lib/utils.js';
+	
+	const API_BASE_URL = 'http://localhost:8000';
 	import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
 	import { faPaperPlane, faEnvelope, faSpinner, faArrowUp } from '@fortawesome/free-solid-svg-icons';
 
@@ -21,6 +23,8 @@
 	let isSending = false;
 	let activeView = 'chat'; // 'chat' | 'newsletter' | 'prompt'
 	let messagesEnd: HTMLElement;
+	let chatHistory: Array<{id: string, title: string, created_at: string, updated_at: string, message_count: number}> = [];
+	let isLoadingChats = false;
 
 	// Handle sending a message
 	async function handleSendMessage() {
@@ -32,6 +36,9 @@
 		isSending = true;
 		await sendMessageAndGetResponse(messageToSend);
 		isSending = false;
+		
+		// Refresh chat history to show the updated chat
+		loadChatHistory();
 	}
 
 	// Handle generating newsletter
@@ -64,9 +71,51 @@
 		scrollToBottom();
 	}
 
-	// Initialize with a welcome message
+	// Load chat history
+	async function loadChatHistory() {
+		isLoadingChats = true;
+		try {
+			const response = await fetch(`${API_BASE_URL}/chats`);
+			if (response.ok) {
+				const data = await response.json();
+				chatHistory = data.chats || [];
+			}
+		} catch (error) {
+			console.error('Error loading chat history:', error);
+		} finally {
+			isLoadingChats = false;
+		}
+	}
+
+	// Load a specific chat
+	async function loadChat(chatId: string) {
+		try {
+			const response = await fetch(`${API_BASE_URL}/chats/${chatId}`);
+			if (response.ok) {
+				const data = await response.json();
+				
+				// Clear current chat
+				chatState.set({ messages: [], chatId: chatId });
+				
+				// Load messages from the selected chat
+				if (data.messages) {
+					data.messages.forEach((msg: any) => {
+						addMessage(msg.content, msg.role === 'user');
+					});
+				}
+				
+				// Update chat ID
+				chatState.update(state => ({ ...state, chatId: chatId }));
+			}
+		} catch (error) {
+			console.error('Error loading chat:', error);
+		}
+	}
+
+	// Initialize with a welcome message and load chat history
 	onMount(() => {
 		addMessage("Hello! I'm your AI recipe assistant. I can help you find recipes, cooking tips, and even generate newsletters from our conversations. What would you like to cook today?", false);
+		loadChatHistory();
 	});
 </script>
 
@@ -76,7 +125,7 @@
 
 <div class="h-screen bg-gray-50 flex">
 	<!-- Sidebar -->
-	<div class="w-64 bg-white border-r border-gray-200 flex flex-col">
+	<div class="w-64 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-full overflow-y-auto">
 		<!-- Header -->
 		<div class="p-6 border-b border-gray-200">
 			<h1 class="text-xl font-bold text-gray-900">Recipe Assistant</h1>
@@ -111,13 +160,52 @@
 				</svg>
 				Prompt Settings
 			</button>
+
+			<!-- Chat History -->
+			<div class="mt-4 h-full">
+				<div class="flex items-center justify-between mb-3">
+					<h3 class="text-sm font-medium text-gray-700">Chat History</h3>
+					<button
+						on:click={loadChatHistory}
+						disabled={isLoadingChats}
+						class="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+						title="Refresh chat history"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+						</svg>
+					</button>
+				</div>
+				
+				{#if isLoadingChats}
+					<div class="flex justify-center py-4">
+						<FontAwesomeIcon icon={faSpinner} class="animate-spin h-4 w-4 text-gray-400" />
+					</div>
+				{:else if chatHistory.length === 0}
+					<p class="text-xs text-gray-500 text-center py-4">No previous chats</p>
+				{:else}
+					<div class="space-y-2 overflow-y-auto">
+						{#each chatHistory as chat (chat.id)}
+							<button
+								on:click={() => loadChat(chat.id)}
+								class="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer {chat.id === $chatState.chatId ? 'bg-blue-50 border border-blue-200' : ''}"
+							>
+								<div class="text-sm font-medium text-gray-900 truncate">{chat.title}</div>
+								<div class="text-xs text-gray-500 mt-1">
+									{new Date(chat.updated_at).toLocaleDateString()} • {chat.message_count} messages
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</nav>
 
 
 	</div>
 
 	<!-- Main Content Area -->
-	<div class="flex-1 flex flex-col">
+	<div class="flex-1 flex flex-col ml-64">
 		{#if activeView === 'chat'}
 			<!-- Chat Interface -->
 			<div class="flex-1 flex flex-col bg-white">
