@@ -291,7 +291,6 @@
 													<div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
 													<div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
 												</div>
-												<span class="text-sm text-gray-600">AI is thinking...</span>
 											</div>
 										</div>
 									</div>
@@ -432,7 +431,7 @@
 							class="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 							placeholder="Enter your newsletter generation prompt..."
 							style="min-height: 24rem; max-height: 60rem;"
-						></textarea>
+						>{$promptState.prompt}</textarea>
 						<p class="mt-2 text-sm text-gray-600">
 							This prompt will be used to generate newsletters from your chat conversations.
 						</p>
