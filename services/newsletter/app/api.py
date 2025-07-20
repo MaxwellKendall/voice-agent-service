@@ -120,6 +120,7 @@ async def get_chats():
                 id=chat["_id"],
                 title=chat["title"],
                 prompt=chat.get("prompt"),
+                newsletter=chat.get("newsletter"),
                 created_at=chat["created_at"],
                 updated_at=chat["updated_at"],
                 message_count=chat["message_count"]
@@ -161,14 +162,13 @@ async def get_chat(chat_id: str):
         messages = await chat_service.get_chat_messages(chat_id)
         
         return {
-            "chat": {
-                "id": chat["_id"],
-                "title": chat["title"],
-                "prompt": chat.get("prompt"),
-                "created_at": chat["created_at"],
-                "updated_at": chat["updated_at"],
-                "message_count": chat["message_count"]
-            },
+            "id": chat["_id"],
+            "title": chat["title"],
+            "prompt": chat.get("prompt"),
+            "newsletter": chat.get("newsletter"),
+            "created_at": chat["created_at"],
+            "updated_at": chat["updated_at"],
+            "message_count": chat["message_count"],
             "messages": messages
         }
         
@@ -213,7 +213,7 @@ async def delete_chat(chat_id: str):
         )
 
 @app.put("/chats/{chat_id}/prompt")
-async def update_chat_prompt(chat_id: str, prompt: str):
+async def update_chat_prompt(chat_id: str, request: dict):
     """
     Update the newsletter generation prompt for a chat.
     
@@ -227,6 +227,10 @@ async def update_chat_prompt(chat_id: str, prompt: str):
     try:
         logger.info(f"Updating prompt for chat: {chat_id}")
         
+        prompt = request.get("prompt")
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt is required")
+        
         chat_service = get_chat_service()
         success = await chat_service.update_chat_prompt(chat_id, prompt)
         
@@ -239,6 +243,42 @@ async def update_chat_prompt(chat_id: str, prompt: str):
         raise
     except Exception as e:
         logger.error(f"Error updating prompt for chat {chat_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+@app.put("/chats/{chat_id}/newsletter")
+async def update_chat_newsletter(chat_id: str, request: dict):
+    """
+    Update the newsletter content for a chat.
+    
+    Args:
+        chat_id: The chat ID
+        newsletter: The newsletter content
+        
+    Returns:
+        Success message
+    """
+    try:
+        logger.info(f"Updating newsletter for chat: {chat_id}")
+        
+        newsletter = request.get("newsletter")
+        if not newsletter:
+            raise HTTPException(status_code=400, detail="Newsletter content is required")
+        
+        chat_service = get_chat_service()
+        success = await chat_service.update_chat_newsletter(chat_id, newsletter)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        return {"message": "Chat newsletter updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating newsletter for chat {chat_id}: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"

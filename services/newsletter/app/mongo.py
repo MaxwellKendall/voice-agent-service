@@ -265,6 +265,35 @@ class ChatService:
         except Exception as e:
             logger.error(f"Error updating chat prompt for {chat_id}: {e}")
             return False
+
+    async def update_chat_newsletter(self, chat_id: str, newsletter: str) -> bool:
+        """
+        Update the newsletter content of a chat.
+        
+        Args:
+            chat_id: The chat ID
+            newsletter: The new newsletter content
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            result = await self.chats_collection.update_one(
+                {"_id": ObjectId(chat_id)},
+                {"$set": {"newsletter": newsletter, "updated_at": datetime.utcnow()}}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Updated chat newsletter for {chat_id}")
+            else:
+                logger.warning(f"Chat {chat_id} not found for newsletter update")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error updating chat newsletter for {chat_id}: {e}")
+            return False
     
     async def delete_chat(self, chat_id: str) -> bool:
         """

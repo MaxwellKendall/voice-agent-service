@@ -45,6 +45,10 @@ class ChatInfo(BaseModel):
         default=None, 
         description="Newsletter generation prompt for this chat session"
     )
+    newsletter: Optional[str] = Field(
+        default=None,
+        description="Newsletter content for this chat session"
+    )
     created_at: datetime = Field(..., description="Chat creation timestamp")
     updated_at: datetime = Field(..., description="Chat last update timestamp")
     message_count: int = Field(..., description="Number of messages in the chat")

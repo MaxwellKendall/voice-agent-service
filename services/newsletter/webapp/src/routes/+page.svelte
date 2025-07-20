@@ -12,23 +12,26 @@
 
 	marked.use({ renderer });
 	import { 
-		chatState, 
-		newsletterState, 
+		chatsState, 
+		messagesState,
+		currentChatIdState,
+		currentPromptState,
+		currentNewsletterState,
+		promptIsEditingState,
+		newsletterIsSavingState,
 		chatHistoryForAPI,
-		promptState,
-		chatHistoryState,
 		addMessage, 
-		setNewsletterMarkdown, 
-		updateNewsletterMarkdown, 
-		resetToChat,
-		updatePrompt,
-		setPromptFromChat,
-		debouncedUpdatePrompt,
-		setChatHistory,
-		clearChat,
+		setMessages,
+		clearMessages,
+		setChats,
+		setCurrentChatId,
+		setCurrentPrompt,
+		setCurrentNewsletter,
+		setPromptIsEditing,
+		setNewsletterIsSaving,
 		type ChatInfo
 	} from '$lib/stores.js';
-	import { generateNewsletterFromChat, sendMessageAndGetResponse, loadChatHistory, loadChat, updateChatPrompt } from '$lib/utils.js';
+	import { generateNewsletterFromChat, sendMessageAndGetResponse, loadChatHistory, loadChat, updateChatPrompt, updateChatNewsletter, updatePromptWithDebounce, updateNewsletterWithDebounce } from '$lib/utils.js';
 	
 	const API_BASE_URL = 'http://localhost:8000';
 	import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
@@ -39,7 +42,7 @@
 	let isSending = false;
 	let activeView = 'chat'; // 'chat' | 'newsletter' | 'prompt'
 	let messagesEnd: HTMLElement;
-	let chatHistory: Array<{id: string, title: string, created_at: string, updated_at: string, message_count: number}> = [];
+	let chatHistory: ChatInfo[] = [];
 	let isLoadingChats = false;
 
 	// Handle sending a message
@@ -61,10 +64,21 @@
 	async function handleGenerateNewsletter() {
 		if (isGenerating) return;
 		isGenerating = true;
-		const markdown = await generateNewsletterFromChat($promptState.prompt);
-		setNewsletterMarkdown(markdown);
-		activeView = 'newsletter';
-		isGenerating = false;
+		
+		try {
+			const markdown = await generateNewsletterFromChat($currentPromptState);
+			setCurrentNewsletter(markdown);
+			activeView = 'newsletter';
+			
+			// Save newsletter to current chat immediately after generation
+			if ($currentChatIdState) {
+				await updateChatNewsletter($currentChatIdState, markdown);
+			}
+		} catch (error) {
+			console.error('Error generating newsletter:', error);
+		} finally {
+			isGenerating = false;
+		}
 	}
 
 	// Handle keyboard events
@@ -83,7 +97,7 @@
 	}
 
 	// Watch for new messages and scroll
-	$: if ($chatState.messages.length > 0) {
+	$: if ($messagesState.length > 0) {
 		scrollToBottom();
 	}
 
@@ -92,11 +106,11 @@
 		isLoadingChats = true;
 		try {
 			const chats = await loadChatHistory();
-			setChatHistory(chats);
+			setChats(chats);
 			chatHistory = chats;
 			
 			// If we have a selected chat, ensure its prompt is loaded
-			const currentChatId = get(chatState).chatId;
+			const currentChatId = get(currentChatIdState);
 			if (currentChatId) {
 				loadPromptForChat(currentChatId);
 			}
@@ -107,12 +121,17 @@
 		}
 	}
 
-	// Helper function to load prompt for a chat
+	// Helper function to load prompt and newsletter for a chat
 	function loadPromptForChat(chatId: string) {
-		const chatHistory = get(chatHistoryState);
-		const selectedChat = chatHistory.find((chat: ChatInfo) => chat.id === chatId);
-		if (selectedChat && selectedChat.prompt) {
-			setPromptFromChat(selectedChat);
+		const chats = get(chatsState);
+		const selectedChat = chats.find((chat: ChatInfo) => chat.id === chatId);
+		if (selectedChat) {
+			if (selectedChat.prompt) {
+				setCurrentPrompt(selectedChat.prompt);
+			}
+			if (selectedChat.newsletter) {
+				setCurrentNewsletter(selectedChat.newsletter);
+			}
 		}
 	}
 
@@ -121,22 +140,27 @@
 		try {
 			const chatData = await loadChat(chatId);
 			if (chatData) {
-				// Clear current chat
-				clearChat();
+				// Clear current messages
+				clearMessages();
 				
 				// Load messages from the selected chat
-				if (chatData.messages) {
+				if (chatData.messages) {				
 					chatData.messages.forEach((msg: any) => {
 						addMessage(msg.content, msg.role === 'user');
 					});
 				}
 				
 				// Update chat ID
-				chatState.update(state => ({ ...state, chatId: chatId }));
+				setCurrentChatId(chatId);
 				
-				// Set prompt from chat if available, otherwise try chat history
-				if (chatData.prompt) {
-					setPromptFromChat({ id: chatId, title: '', prompt: chatData.prompt, created_at: '', updated_at: '', message_count: 0 });
+				// Set prompt and newsletter from chat if available, otherwise try chat history
+				if (chatData.prompt || chatData.newsletter) {
+					if (chatData.prompt) {
+						setCurrentPrompt(chatData.prompt);
+					}
+					if (chatData.newsletter) {
+						setCurrentNewsletter(chatData.newsletter);
+					}
 				} else {
 					loadPromptForChat(chatId);
 				}
@@ -150,16 +174,20 @@
 	function handlePromptChange(event: Event) {
 		const target = event.target as HTMLTextAreaElement;
 		const newPrompt = target.value;
-		
-		// Use debounced update to save to backend
-		if ($chatState.chatId) {
-			debouncedUpdatePrompt(newPrompt, async (prompt) => {
-				await updateChatPrompt($chatState.chatId, prompt);
-			});
-		} else {
-			// For new chats, just update local state
-			updatePrompt(newPrompt);
-		}
+		setCurrentPrompt(newPrompt);
+		setPromptIsEditing(true);
+
+		updatePromptWithDebounce(newPrompt);
+	}
+
+	// Handle newsletter changes with debouncing
+	function handleNewsletterChange(event: Event) {
+		const target = event.target as HTMLTextAreaElement;
+		const newNewsletter = target.value;
+		setCurrentNewsletter(newNewsletter);
+		setNewsletterIsSaving(true);
+
+		updateNewsletterWithDebounce(newNewsletter);
 	}
 
 	// Initialize with a welcome message and load chat history
@@ -238,7 +266,7 @@
 						{#each chatHistory as chat (chat.id)}
 							<button
 								on:click={() => loadChatData(chat.id)}
-								class="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer {chat.id === $chatState.chatId ? 'bg-blue-50 border border-blue-200' : ''}"
+								class="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer {chat.id === $currentChatIdState ? 'bg-blue-50 border border-blue-200' : ''}"
 							>
 								<div class="text-sm font-medium text-gray-900 truncate">{chat.title}</div>
 								<div class="text-xs text-gray-500 mt-1">
@@ -267,14 +295,14 @@
 							<p class="text-sm text-gray-600">Ask me about recipes, cooking tips, and more!</p>
 						</div>
 						<div class="text-sm text-gray-500">
-							{$chatState.messages.length} messages
+							{$messagesState.length} messages
 						</div>
 					</div>
 				</div>
 
 				<!-- Messages Area -->
 				<div class="flex-1 overflow-y-auto p-6 space-y-6">
-					{#each $chatState.messages as message (message.id)}
+					{#each $messagesState as message (message.id)}
 						<div class="flex {message.isUser ? 'justify-end' : 'justify-start'}">
 							<div class="max-w-2xl {message.isUser ? 'order-2' : 'order-1'}">
 								<div class="flex items-start space-x-3">
@@ -361,7 +389,7 @@
 								<!-- Generate Newsletter Button -->
 								<button
 									on:click={handleGenerateNewsletter}
-									disabled={isGenerating || $chatState.messages.length === 0}
+									disabled={isGenerating || get(messagesState).length === 0}
 									class="p-2 text-gray-500 hover:text-blue-600 disabled:text-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg cursor-pointer"
 									title="Generate Newsletter"
 								>
@@ -396,6 +424,12 @@
 						<div>
 							<h2 class="text-lg font-semibold text-gray-900">Newsletter Editor</h2>
 							<p class="text-sm text-gray-600">Edit and preview your generated newsletter</p>
+							{#if $newsletterIsSavingState}
+								<div class="flex items-center text-sm text-blue-600 mt-1">
+									<FontAwesomeIcon icon={faSpinner} class="animate-spin h-4 w-4 mr-2" />
+									Saving...
+								</div>
+							{/if}
 						</div>
 						<button
 							on:click={() => activeView = 'chat'}
@@ -418,8 +452,8 @@
 							</label>
 							<textarea
 								id="markdown-editor"
-								bind:value={$newsletterState.markdown}
-								on:input={(e) => updateNewsletterMarkdown(e.currentTarget.value)}
+								bind:value={$currentNewsletterState}
+								on:input={handleNewsletterChange}
 								class="w-full h-full p-4 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 								placeholder="Edit your newsletter markdown here..."
 							></textarea>
@@ -431,7 +465,7 @@
 						<div class="p-6 h-full overflow-y-auto">
 							<h3 class="text-sm font-medium text-gray-700 mb-3">Preview</h3>
 							<div class="prose prose-sm max-w-none bg-white p-6 rounded-lg border border-gray-200">
-								{@html marked($newsletterState.markdown)}
+								{@html marked($currentNewsletterState)}
 							</div>
 						</div>
 					</div>
@@ -467,7 +501,7 @@
 						</label>
 						<textarea
 							id="prompt-editor"
-							bind:value={$promptState.prompt}
+							bind:value={$currentPromptState}
 							on:input={handlePromptChange}
 							class="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 							placeholder="Enter your newsletter generation prompt..."
@@ -477,7 +511,7 @@
 							<p class="text-sm text-gray-600">
 								This prompt will be used to generate newsletters from your chat conversations.
 							</p>
-							{#if $promptState.isEditing}
+							{#if $promptIsEditingState}
 								<div class="flex items-center text-sm text-blue-600">
 									<FontAwesomeIcon icon={faSpinner} class="animate-spin h-4 w-4 mr-2" />
 									Saving...
