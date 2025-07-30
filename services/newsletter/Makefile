@@ -45,4 +45,14 @@ docker-build: ## Build Docker image
 	docker build -t ai-recipe-agent .
 
 docker-run: ## Run Docker container
-	docker run -p 8000:8000 --env-file .env ai-recipe-agent 
+	docker run -p 8000:8000 --env-file .env ai-recipe-agent
+
+# MongoDB Migration Commands
+mongo-dump: ## Dump local MongoDB database
+	./scripts/migrate_mongodb.sh dump ./mongodb_dump
+
+mongo-restore: ## Restore MongoDB dump to cloud (usage: make mongo-restore TARGET_URI="mongodb+srv://..." TARGET_DB="dbname")
+	./scripts/migrate_mongodb.sh restore ./mongodb_dump "$(TARGET_URI)" "$(TARGET_DB)"
+
+mongo-migrate: ## Migrate local MongoDB to cloud (usage: make mongo-migrate TARGET_URI="mongodb+srv://..." TARGET_DB="dbname")
+	./scripts/migrate_mongodb.sh migrate "$(TARGET_URI)" "$(TARGET_DB)" 
