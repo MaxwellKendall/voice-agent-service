@@ -33,7 +33,6 @@
 	} from '$lib/stores.js';
 	import { generateNewsletterFromChat, sendMessageAndGetResponse, loadChatHistory, loadChat, updateChatPrompt, updateChatNewsletter, updatePromptWithDebounce, updateNewsletterWithDebounce } from '$lib/utils.js';
 	
-	const API_BASE_URL = 'http://localhost:8000';
 	import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
 	import { faPaperPlane, faEnvelope, faSpinner, faArrowUp } from '@fortawesome/free-solid-svg-icons';
 

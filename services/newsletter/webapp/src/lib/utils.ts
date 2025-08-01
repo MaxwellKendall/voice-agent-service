@@ -2,7 +2,7 @@ import { addMessage, currentChatIdState, currentPromptState, currentNewsletterSt
 import { get } from 'svelte/store';
 import debounce from 'lodash.debounce';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const DEBOUNCE_INTERVAL = 1500;
 
 // Real API call to chat endpoint

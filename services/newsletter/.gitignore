@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+.env.prod
 
 # Python
 __pycache__/
@@ -64,3 +65,4 @@ htmlcov/
 .python-version 
 
 .DS_Store
+.vercel
