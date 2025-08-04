@@ -324,12 +324,153 @@ class ChatService:
             logger.error(f"Error deleting chat {chat_id}: {e}")
             return False
 
-# Global chat service instance
+class RecipeService:
+    """Service for managing recipe operations in MongoDB."""
+    
+    def __init__(self):
+        # Use a different database for recipes
+        self.client = AsyncIOMotorClient(get_mongodb_uri())
+        self.db = self.client.recipes  # Use 'recipes' database instead of newsletter-generation
+        self.recipes_collection = self.db.parsed_recipes  # Use 'parsed_recipes' collection
+    
+    async def add_recipe(self, recipe_data: Dict[str, Any]) -> str:
+        """
+        Add a recipe to the database.
+        
+        Args:
+            recipe_data: The recipe data to store
+            
+        Returns:
+            The recipe ID as a string
+        """
+        try:
+            # Add timestamps
+            recipe_doc = {
+                **recipe_data,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            result = await self.recipes_collection.insert_one(recipe_doc)
+            recipe_id = str(result.inserted_id)
+            
+            logger.info(f"Added recipe to database with ID: {recipe_id}")
+            return recipe_id
+            
+        except Exception as e:
+            logger.error(f"Error adding recipe to database: {e}")
+            raise
+    
+    async def get_recipe(self, recipe_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a recipe by ID.
+        
+        Args:
+            recipe_id: The recipe ID
+            
+        Returns:
+            Recipe document or None if not found
+        """
+        try:
+            recipe = await self.recipes_collection.find_one({"_id": ObjectId(recipe_id)})
+            if recipe:
+                recipe["_id"] = str(recipe["_id"])
+            return recipe
+            
+        except Exception as e:
+            logger.error(f"Error getting recipe {recipe_id}: {e}")
+            return None
+    
+    async def get_recipe_by_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a recipe by URL.
+        
+        Args:
+            url: The recipe URL
+            
+        Returns:
+            Recipe document or None if not found
+        """
+        try:
+            recipe = await self.recipes_collection.find_one({"link": url})
+            if recipe:
+                recipe["_id"] = str(recipe["_id"])
+            return recipe
+            
+        except Exception as e:
+            logger.error(f"Error getting recipe by URL {url}: {e}")
+            return None
+    
+    async def update_recipe(self, recipe_id: str, recipe_data: Dict[str, Any]) -> bool:
+        """
+        Update a recipe in the database.
+        
+        Args:
+            recipe_id: The recipe ID
+            recipe_data: The updated recipe data
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            recipe_data["updated_at"] = datetime.utcnow()
+            
+            result = await self.recipes_collection.update_one(
+                {"_id": ObjectId(recipe_id)},
+                {"$set": recipe_data}
+            )
+            
+            success = result.modified_count > 0
+            if success:
+                logger.info(f"Updated recipe {recipe_id}")
+            else:
+                logger.warning(f"Recipe {recipe_id} not found for update")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error updating recipe {recipe_id}: {e}")
+            return False
+    
+    async def delete_recipe(self, recipe_id: str) -> bool:
+        """
+        Delete a recipe from the database.
+        
+        Args:
+            recipe_id: The recipe ID
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            result = await self.recipes_collection.delete_one({"_id": ObjectId(recipe_id)})
+            
+            success = result.deleted_count > 0
+            if success:
+                logger.info(f"Deleted recipe {recipe_id}")
+            else:
+                logger.warning(f"Recipe {recipe_id} not found for deletion")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error deleting recipe {recipe_id}: {e}")
+            return False
+
+# Global service instances
 _chat_service: ChatService = None
+_recipe_service: RecipeService = None
 
 def get_chat_service() -> ChatService:
     """Get the global chat service instance."""
     global _chat_service
     if _chat_service is None:
         _chat_service = ChatService()
-    return _chat_service 
+    return _chat_service
+
+def get_recipe_service() -> RecipeService:
+    """Get the global recipe service instance."""
+    global _recipe_service
+    if _recipe_service is None:
+        _recipe_service = RecipeService()
+    return _recipe_service 
