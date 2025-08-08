@@ -1,0 +1,47 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch MCP Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/services/mcp/server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/services/mcp",
+            "python": "${workspaceFolder}/services/mcp/venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/services/mcp"
+            },
+            "args": [],
+            "justMyCode": false
+        },
+        {
+            "name": "Debug Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/services/mcp",
+            "python": "${workspaceFolder}/services/mcp/venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/services/mcp"
+            },
+            "args": [],
+            "justMyCode": false
+        },
+        {
+            "name": "Launch Dice MCP Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/services/mcp/examples/dice_server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/services/mcp",
+            "python": "${workspaceFolder}/services/mcp/venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/services/mcp"
+            },
+            "args": [],
+            "justMyCode": false
+        }
+    ]
+} 
