@@ -9,6 +9,8 @@ import sys
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 # Add the current directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +29,13 @@ mcp = FastMCP(name="recipe-agent")
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Add health check endpoint
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request):
+    logger.debug(f"health_check called with request: '{request}'")
+    """Health check endpoint for Railway deployment."""
+    return PlainTextResponse("OK")
 
 def roll_dice(n_dice: int) -> list[int]:
     """Roll `n_dice` 6-sided dice and return the results."""
@@ -107,6 +116,7 @@ def get_similar_recipes(recipe_id: str) -> List[Dict[str, Any]]:
 @mcp.tool
 def find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]]:
     """
+    @TODO: this should first check mongo to see if we have the recipe via the URL.
     Find recipes similar to a recipe from a web URL using vector similarity.
     
     Args:
@@ -207,4 +217,4 @@ if __name__ == "__main__":
     
     # Start server
     logger.info("Starting Recipe Agent MCP Server...")
-    mcp.run(transport="http", port=8000, stateless_http=True) 
+    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True) 
