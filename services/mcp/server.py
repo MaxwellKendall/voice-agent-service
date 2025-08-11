@@ -37,9 +37,23 @@ async def health_check(request: Request):
     """Health check endpoint for Railway deployment."""
     return PlainTextResponse("OK")
 
-def roll_dice(n_dice: int) -> list[int]:
-    """Roll `n_dice` 6-sided dice and return the results."""
-    return [random.randint(1, 6) for _ in range(n_dice)]
+@mcp.resource("data://recipe/{recipe_id}")
+async def recipe_resource(recipe_id: str) -> dict:
+    """Fetch a recipe from MongoDB by its ID."""
+    logger.debug(f"recipe_resource called with recipe_id: '{recipe_id}'")
+    try:
+        # Get the recipe from MongoDB
+        mongo_store = get_mongodb_store()
+        recipe = mongo_store.get_recipe(recipe_id)
+        
+        if not recipe:
+            raise ValueError(f"Recipe with ID '{recipe_id}' not found")
+        
+        return recipe
+        
+    except Exception as e:
+        logger.error(f"Error fetching recipe {recipe_id}: {e}")
+        raise ValueError(f"Failed to fetch recipe: {str(e)}")
 
 @mcp.tool
 def search_recipes(query: str) -> List[Dict[str, Any]]:
