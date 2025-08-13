@@ -1,0 +1,139 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Initialize React PWA Project",
+        "description": "Set up the project repository using Create React App with PWA template, configure Tailwind CSS, and establish basic folder structure.",
+        "details": "Use Create React App (CRA) with the PWA template (`npx create-react-app handsfree-cooking-app --template cra-template-pwa`). Integrate Tailwind CSS (`npm install -D tailwindcss postcss autoprefixer` and configure `tailwind.config.js`). Set up HTTPS for local development. Ensure the initial commit includes README, .gitignore, and basic project structure.",
+        "testStrategy": "Verify app runs locally, Tailwind styles apply, and service worker is registered. Confirm HTTPS is enabled for development.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement Supabase Authentication with Google OAuth",
+        "description": "Integrate Supabase Auth for Google OAuth login, secure session management, and protected routes.",
+        "details": "Install Supabase JS client (`@supabase/supabase-js`). Configure Supabase project and enable Google OAuth. Implement login/logout flows, session persistence, and protected route logic in React using context or hooks. Store user profile data in Supabase PostgreSQL upon first login.",
+        "testStrategy": "Test login/logout flows, session persistence, and access control for protected routes. Validate user data is stored in Supabase DB.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Design Landing Page and Core Navigation",
+        "description": "Create a mobile-first landing page with app branding, description, and prominent Google sign-in button. Implement core navigation structure.",
+        "details": "Use Tailwind CSS for responsive design. Ensure accessibility and PWA best practices. Implement navigation using React Router v6. Add app manifest (`manifest.json`) for installability and branding.",
+        "testStrategy": "Check responsiveness on mobile/tablet, accessibility compliance, and correct navigation. Validate manifest and installability.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Recipe Entry and Extraction Flow",
+        "description": "Build recipe URL input form, validate URLs, handle errors, and integrate with external recipe extraction endpoint.",
+        "details": "Implement form with validation using React Hook Form. On submit, call external endpoint via REST API (handle loading, errors, and success). Display feedback to user. Use Axios or Fetch API for requests. Store parsed recipe data in Supabase PostgreSQL.",
+        "testStrategy": "Test valid/invalid URL handling, loading states, error feedback, and successful extraction. Confirm recipe data is stored in DB.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Recipe Display Interface",
+        "description": "Develop clean, mobile-optimized UI to present extracted recipe details, ingredients, and steps. Enable transition to Cook Mode.",
+        "details": "Use Tailwind CSS for layout. Display recipe metadata (title, description, cooking/prep time, serving size, temperature). Render ingredients and steps in accessible, scannable format. Add 'Enter Cook Mode' button. Ensure responsive design for mobile/tablet.",
+        "testStrategy": "Validate UI on multiple devices, check accessibility, and confirm all recipe fields display correctly. Test Cook Mode transition.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Cook Mode Interface and Microphone Access",
+        "description": "Implement full-screen Cook Mode UI, request microphone permissions, and highlight current recipe step.",
+        "details": "Use React state to manage current step. Request microphone access via Web Speech API (`window.SpeechRecognition`). Display real-time status indicators and voice command feedback. Handle permission errors gracefully.",
+        "testStrategy": "Test Cook Mode entry, microphone permission flow, and step highlighting. Validate UI responsiveness and error handling.",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Voice Recognition Integration",
+        "description": "Integrate Web Speech API for real-time speech-to-text, command parsing, and error handling.",
+        "details": "Use browser-native Web Speech API (`SpeechRecognition`). Implement real-time transcription, command parsing (e.g., next step, repeat, ingredient queries). Provide visual feedback for voice input status. Handle recognition errors and fallback gracefully.",
+        "testStrategy": "Test speech-to-text accuracy, command parsing, and error handling across supported browsers/devices.",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "WebSocket Communication Layer",
+        "description": "Establish real-time WebSocket connection for agent session, recipe context transmission, and voice query delivery.",
+        "details": "Use native WebSocket API in JavaScript. Connect to backend Node.js/Express WebSocket server. Implement connection management, error recovery, and session persistence. Transmit recipe context and voice queries to backend; receive agent responses.",
+        "testStrategy": "Simulate connection loss/recovery, validate real-time message exchange, and test session persistence.",
+        "priority": "high",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "AI Agent Backend Integration",
+        "description": "Integrate OpenAI API for context-aware recipe assistance, supporting common cooking queries and substitutions.",
+        "details": "On backend (Node.js/Express), implement API routes to interact with OpenAI API (latest GPT-4 or GPT-4o). Pass recipe context and user queries, parse responses, and return to frontend via WebSocket. Ensure secure API key management and rate limiting.",
+        "testStrategy": "Test agent responses for all supported queries, validate context awareness, and check error handling. Monitor API usage and security.",
+        "priority": "high",
+        "dependencies": [
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Database Schema Design and Real-Time Sync",
+        "description": "Design Supabase PostgreSQL schema for users, recipes, sessions, and favorites. Implement real-time subscriptions for live updates.",
+        "details": "Define tables: users, recipes, sessions, user_recipes (junction). Use Supabase's real-time features for session/recipe updates. Ensure schema supports all required fields and relationships. Optimize for mobile performance and scalability.",
+        "testStrategy": "Validate schema with test data, check real-time sync, and ensure queries perform well under load. Test data integrity and relationships.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-13T13:25:50.866Z",
+      "updated": "2025-08-13T13:25:50.866Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

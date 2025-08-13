@@ -1,0 +1,128 @@
+# Hands-Free Cooking App (MVP) - Product Requirements Document
+
+## Project Overview
+This milestone delivers a progressive web app optimized for mobile and tablet. Users will log in via Google, paste a recipe link, and enter "cook mode." The app will extract the recipe, display it in a clean UI, and open a live voice-driven assistant session via WebSocket. The assistant helps manage steps, ingredients, and substitutions in real-time.
+
+## Goals
+- Mobile-first UX with intuitive flow
+- Real-time voice-driven interaction with recipes
+- Clean recipe display with extracted steps and ingredients
+- Real-time agent session via WebSocket
+
+## Tech Stack
+- UI Framework: React (chosen for ease of development)
+- Styling: Tailwind CSS
+- Authentication: Supabase Auth with Google OAuth
+- Database: Supabase PostgreSQL
+- Voice Recognition: Web Speech API (browser-native)
+- WebSocket Client: Native WebSocket in JavaScript
+- Web App Type: Progressive Web App (PWA)
+- Backend: Node.js with Express
+- Recipe Processing: External service endpoint (existing)
+- AI Integration: OpenAI API for recipe assistance
+
+## Existing Components
+- External endpoint for extracting recipes from a URL and loading them into MongoDB and vectorDB
+- Recipe data structure with steps, ingredients, and metadata
+
+## User Flow Requirements
+
+### 1. Landing Page
+- Display app name and brief description
+- Show "Sign in with Google" button prominently
+- Mobile-responsive design with Tailwind CSS
+- Progressive Web App capabilities
+
+### 2. Authentication System (Supabase)
+- Supabase Auth integration with Google OAuth
+- Secure session management with Supabase Auth
+- User profile storage in Supabase PostgreSQL
+- Protected routes for authenticated users
+- Real-time user session state management
+
+### 3. Recipe Entry Interface
+- Form input for recipe URL pasting
+- URL validation and error handling
+- Loading states during recipe processing
+- Call external recipe extraction endpoint
+- Display success feedback when recipe is parsed
+
+### 4. Recipe Display Interface
+- Clean, mobile-optimized UI showing extracted recipe
+- Display recipe title, description, and cooking time
+- Show ingredients list in a scannable format
+- Display cooking steps in a numbered, easy-to-follow layout
+- Include cooking temperature, prep time, and serving size if available
+- Responsive design that works on mobile and tablet
+- Option to enter "Cook Mode" from this view
+
+### 5. Cook Mode Interface
+- Transition to full-screen cooking interface
+- Microphone access request and permission handling
+- WebSocket connection establishment
+- Real-time status indicators
+- Recipe display with current step highlighting
+- Voice command feedback and response display
+
+### 6. Voice Recognition System
+- Web Speech API integration for voice input
+- Real-time speech-to-text conversion
+- Voice command parsing and interpretation
+- Error handling for speech recognition failures
+- Visual feedback for voice input status
+
+### 7. AI Agent Backend
+- OpenAI API integration for recipe assistance
+- Context-aware responses based on recipe data
+- Support for common cooking queries:
+  - "What's the next step?"
+  - "How much salt again?"
+  - "What can I use instead of heavy cream?"
+  - "How long should I cook this?"
+  - "What temperature should the oven be?"
+  - "Repeat the current step"
+  - "Go back to the previous step"
+
+### 8. WebSocket Communication
+- Real-time bidirectional communication
+- Recipe context transmission to AI agent
+- Voice query processing and response delivery
+- Connection management and error recovery
+- Session persistence and reconnection handling
+
+### 9. Database Schema (Supabase)
+- Users table with Google profile data and preferences
+- Recipes table with parsed recipe information
+- Sessions table for active cooking sessions
+- User_Recipes junction table for saved/favorite recipes
+- Real-time subscriptions for live updates
+
+### 10. Progressive Web App Features
+- Service worker for offline capabilities
+- App manifest for installability
+- Push notifications (future enhancement)
+- Responsive design for all screen sizes
+- Offline recipe caching
+
+## Success Criteria
+- Users can successfully log in with Supabase Google OAuth
+- Recipe URLs are processed and displayed in a clean UI
+- Recipe steps and ingredients are clearly presented
+- Users can enter cook mode with microphone access
+- WebSocket sessions open with proper recipe context
+- AI agent responds accurately to voice queries about recipe steps, ingredients, and substitutions
+- App works seamlessly on mobile and tablet devices
+- Voice recognition is reliable and responsive
+- Recipe data is properly structured and searchable
+- User sessions are managed securely through Supabase
+
+## Technical Requirements
+- Supabase integration for authentication and database
+- RESTful API endpoints for recipe submission to external service
+- WebSocket server for real-time communication
+- External recipe processing service integration
+- Secure authentication and authorization via Supabase
+- Error handling and logging throughout the application
+- Performance optimization for mobile devices
+- Accessibility compliance for voice interactions
+- Real-time data synchronization with Supabase

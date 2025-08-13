@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
+from starlette.responses import JSONResponse
 
 # Add the current directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -30,12 +31,35 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Add health check endpoint
+# health check endpoint
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request):
     logger.debug(f"health_check called with request: '{request}'")
     """Health check endpoint for Railway deployment."""
     return PlainTextResponse("OK")
+
+# recipe extraction endpoint
+@mcp.custom_route("/extract-recipe", methods=["POST"])
+async def extract_recipe_endpoint(request: Request):
+    """Extract and store recipe from URL via HTTP endpoint."""
+    logger.debug(f"extract_recipe_endpoint called with request: '{request}'")
+    try:
+        # Parse JSON body
+        body = await request.json()
+        url = body.get("url")
+        
+        if not url:
+            return PlainTextResponse("Missing 'url' parameter", status_code=400)
+        
+        # Call the existing tool function
+        result = extract_and_store_recipe(url)
+        
+        # Return JSON response
+        return JSONResponse(result)
+        
+    except Exception as e:
+        logger.error(f"Error in extract_recipe_endpoint: {e}")
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 @mcp.resource("data://recipe/{recipe_id}")
 async def recipe_resource(recipe_id: str) -> dict:
