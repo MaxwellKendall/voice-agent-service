@@ -1,10 +1,14 @@
 import React, { JSX } from 'react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import RecipeEntryForm from '../components/RecipeEntryForm'
+import RecipeDisplay from '../components/RecipeDisplay'
+import { RecipeExtractionResponse } from '../services/recipeService'
 
 const DashboardPage = (): JSX.Element => {
   const { user, signOut } = useAuth()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [currentRecipe, setCurrentRecipe] = useState<RecipeExtractionResponse['data'] | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const handleSignOut = async (): Promise<void> => {
@@ -13,6 +17,19 @@ const DashboardPage = (): JSX.Element => {
     } catch (error) {
       console.error('Sign out error:', error)
     }
+  }
+
+  const handleRecipeExtracted = (recipe: RecipeExtractionResponse['data']) => {
+    setCurrentRecipe(recipe)
+  }
+
+  const handleStartCooking = () => {
+    // TODO: Navigate to cook mode
+    console.log('Starting cook mode with recipe:', currentRecipe)
+  }
+
+  const handleBackToRecipeEntry = () => {
+    setCurrentRecipe(null)
   }
 
   // Close dropdown when clicking outside
@@ -105,71 +122,58 @@ const DashboardPage = (): JSX.Element => {
         {/* Main Content */}
         <div className="py-8">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Welcome to Voice Cooking!
-              </h2>
-              <p className="text-gray-600 mb-6">
-                You're now signed in and ready to start cooking hands-free. 
-                Paste a recipe URL to get started with voice-guided cooking.
-              </p>
+            {currentRecipe ? (
+              <RecipeDisplay
+                recipe={currentRecipe}
+                onStartCooking={handleStartCooking}
+                onBack={handleBackToRecipeEntry}
+              />
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    Welcome to Voice Cooking!
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    You're now signed in and ready to start cooking hands-free. 
+                    Paste a recipe URL to get started with voice-guided cooking.
+                  </p>
+                </div>
 
-              {/* Recipe Entry Section */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Get Started
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="recipe-url" className="block text-sm font-medium text-gray-700 mb-2">
-                      Recipe URL
-                    </label>
-                    <div className="flex space-x-2">
-                      <input
-                        type="url"
-                        id="recipe-url"
-                        placeholder="https://example.com/recipe"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200">
-                        Extract Recipe
-                      </button>
-                    </div>
+                <RecipeEntryForm onRecipeExtracted={handleRecipeExtracted} />
+
+                {/* User Info */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    Account Information
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Email</dt>
+                        <dd className="text-sm text-gray-900">{user?.email}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Name</dt>
+                        <dd className="text-sm text-gray-900">
+                          {user?.user_metadata?.full_name || 'Not provided'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">User ID</dt>
+                        <dd className="text-sm text-gray-900 font-mono">{user?.id}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Provider</dt>
+                        <dd className="text-sm text-gray-900 capitalize">
+                          {user?.app_metadata?.provider || 'Unknown'}
+                        </dd>
+                      </div>
+                    </dl>
                   </div>
                 </div>
               </div>
-
-              {/* User Info */}
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Account Information
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Email</dt>
-                      <dd className="text-sm text-gray-900">{user?.email}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Name</dt>
-                      <dd className="text-sm text-gray-900">
-                        {user?.user_metadata?.full_name || 'Not provided'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">User ID</dt>
-                      <dd className="text-sm text-gray-900 font-mono">{user?.id}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Provider</dt>
-                      <dd className="text-sm text-gray-900 capitalize">
-                        {user?.app_metadata?.provider || 'Unknown'}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
