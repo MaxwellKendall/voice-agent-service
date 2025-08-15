@@ -6,6 +6,7 @@ This guide covers deploying the Voice Cooking App to Vercel.
 
 - Node.js 18+ installed
 - Vercel account (free at [vercel.com](https://vercel.com))
+- Supabase project with modern authentication
 - Environment variables configured
 
 ## Quick Deployment
@@ -77,10 +78,19 @@ Before deploying, you need to set up your environment variables in Vercel:
 3. Add the following variables:
 
 ```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Supabase Configuration (Modern Authentication)
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SECRET_KEY=your_supabase_secret_key
+SUPABASE_JWT_SIGNING_KEY=your_supabase_jwt_signing_key
+
+# OpenAI Configuration
 VITE_OPENAI_API_KEY=your_openai_api_key
-VITE_RECIPE_API_URL=your_recipe_extraction_api_url
+
+# Recipe Extraction API
+VITE_RECIPE_API_URL=your_recipe_extraction_endpoint_url
+
+# WebSocket Configuration
 VITE_WEBSOCKET_URL=your_websocket_server_url
 ```
 
@@ -88,7 +98,9 @@ VITE_WEBSOCKET_URL=your_websocket_server_url
 
 ```bash
 vercel env add VITE_SUPABASE_URL
-vercel env add VITE_SUPABASE_ANON_KEY
+vercel env add VITE_SUPABASE_PUBLISHABLE_KEY
+vercel env add SUPABASE_SECRET_KEY
+vercel env add SUPABASE_JWT_SIGNING_KEY
 vercel env add VITE_OPENAI_API_KEY
 vercel env add VITE_RECIPE_API_URL
 vercel env add VITE_WEBSOCKET_URL
@@ -161,9 +173,14 @@ vercel env add VITE_WEBSOCKET_URL
 - Verify manifest file is accessible
 
 **Environment Variables Not Loading**
-- Check variable names start with `VITE_`
+- Check variable names start with `VITE_` for client-side access
 - Verify variables are set in Vercel dashboard
 - Redeploy after adding new variables
+
+**Supabase Authentication Issues**
+- Verify you're using modern authentication keys (not legacy anon key)
+- Check that Google OAuth is properly configured in Supabase
+- Ensure redirect URLs are correctly set
 
 ### Getting Help
 

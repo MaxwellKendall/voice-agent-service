@@ -7,7 +7,7 @@ A Progressive Web App (PWA) that provides hands-free cooking assistance using vo
 - 🎤 **Voice Recognition**: Real-time speech-to-text using Web Speech API
 - 🤖 **AI Assistant**: Context-aware recipe assistance with OpenAI
 - 📱 **Progressive Web App**: Installable on mobile, tablet, and desktop
-- 🔐 **Authentication**: Google OAuth via Supabase
+- 🔐 **Authentication**: Google OAuth via Supabase (Modern Auth)
 - 📊 **Recipe Display**: Clean UI for viewing recipe steps and ingredients
 - 🔄 **Real-time Communication**: WebSocket-based voice interaction
 - 🎨 **Responsive Design**: Optimized for mobile, tablet, and desktop
@@ -17,7 +17,7 @@ A Progressive Web App (PWA) that provides hands-free cooking assistance using vo
 
 - **Frontend**: React 18 with Vite
 - **Styling**: Tailwind CSS with responsive design
-- **Authentication**: Supabase Auth with Google OAuth
+- **Authentication**: Supabase Auth with Google OAuth (Modern API)
 - **Database**: Supabase PostgreSQL
 - **Voice Recognition**: Web Speech API
 - **AI Integration**: OpenAI API
@@ -45,7 +45,7 @@ The app is designed to work perfectly across all devices:
 
 - Node.js 18+ 
 - npm or yarn
-- Supabase account
+- Supabase account with modern authentication
 - OpenAI API key
 
 ### Installation
@@ -68,10 +68,20 @@ cp env.example .env
 
 Edit `.env` and add your API keys:
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Supabase Configuration (Modern Authentication)
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SECRET_KEY=your_supabase_secret_key
+SUPABASE_JWT_SIGNING_KEY=your_supabase_jwt_signing_key
+
+# OpenAI Configuration
 VITE_OPENAI_API_KEY=your_openai_api_key
-VITE_RECIPE_API_URL=your_recipe_extraction_api_url
+
+# Recipe Extraction API
+VITE_RECIPE_API_URL=your_recipe_extraction_endpoint_url
+
+# WebSocket Configuration
+VITE_WEBSOCKET_URL=your_websocket_server_url
 ```
 
 4. Start the development server:
