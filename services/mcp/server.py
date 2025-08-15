@@ -31,12 +31,21 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+def add_cors_headers(response):
+    """Add CORS headers to a response."""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
 # health check endpoint
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request):
     logger.debug(f"health_check called with request: '{request}'")
     """Health check endpoint for Railway deployment."""
-    return PlainTextResponse("OK")
+    response = PlainTextResponse("OK")
+    return add_cors_headers(response)
 
 # recipe extraction endpoint
 @mcp.custom_route("/extract-recipe", methods=["POST"])
@@ -49,17 +58,28 @@ async def extract_recipe_endpoint(request: Request):
         url = body.get("url")
         
         if not url:
-            return PlainTextResponse("Missing 'url' parameter", status_code=400)
+            response = PlainTextResponse("Missing 'url' parameter", status_code=400)
+            return add_cors_headers(response)
         
         # Call the existing tool function
         result = extract_and_store_recipe(url)
         
         # Return JSON response
-        return JSONResponse(result)
+        response = JSONResponse(result)
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Error in extract_recipe_endpoint: {e}")
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        response = JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        return add_cors_headers(response)
+
+# CORS preflight endpoint for extract-recipe
+@mcp.custom_route("/extract-recipe", methods=["OPTIONS"])
+async def extract_recipe_options(request: Request):
+    """Handle CORS preflight requests for the extract-recipe endpoint."""
+    logger.debug(f"extract_recipe_options called with request: '{request}'")
+    response = PlainTextResponse("", status_code=200)
+    return add_cors_headers(response)
 
 @mcp.resource("data://recipe/{recipe_id}")
 async def recipe_resource(recipe_id: str) -> dict:
