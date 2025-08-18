@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.responses import JSONResponse
+import asyncio
 
 # Add the current directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -61,8 +62,53 @@ async def extract_recipe_endpoint(request: Request):
             response = PlainTextResponse("Missing 'url' parameter", status_code=400)
             return add_cors_headers(response)
         
-        # Call the existing tool function
-        result = extract_and_store_recipe(url)
+        # Call the implementation logic directly (not the decorated tool function)
+        from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
+        
+        # Extract recipe content
+        recipe_data = extract_recipe_data(url)
+        recipe_data["link"] = url
+        if not recipe_data:
+            response = JSONResponse({
+                "success": False,
+                "error": f"Could not extract recipe content from URL: {url}"
+            }, status_code=400)
+            return add_cors_headers(response)
+                
+        # Enrich with AI
+        enriched_data = await enrich_recipe_with_ai(recipe_data)
+        
+        # Generate natural language summary (embedding_prompt) for vector search
+        # This matches the TypeScript approach exactly
+        embedding_prompt = await generate_embedding_prompt(enriched_data)
+        
+        # Save to MongoDB with embedding_prompt
+        mongo_store = get_mongodb_store()
+        recipe_id = mongo_store.save_recipe(enriched_data, embedding_prompt)
+        
+        # Generate embeddings using ONLY the embedding_prompt (not the full recipe text)
+        # This ensures identical semantic meaning with the TypeScript implementation
+        recipe_vector = embed_query(embedding_prompt)
+        
+        # Store in vector store with full recipe data as metadata
+        vector_store = get_vector_store()
+        vector_store.add_recipe(recipe_id, recipe_vector, enriched_data)
+        
+        result = {
+            "success": True,
+            "recipe_id": recipe_id,
+            "title": enriched_data.get("title", "Unknown"),
+            "link": url,
+            "summary": enriched_data.get("summary", ""),
+            "ingredients": enriched_data.get("ingredients", []),
+            "instructions": enriched_data.get("instruction_details", []),
+            "cuisine": enriched_data.get("cuisine", "Unknown"),
+            "category": enriched_data.get("category", "Unknown"),
+            "difficulty_level": enriched_data.get("difficulty_level", 0),
+            "servings": enriched_data.get("servings", 0),
+            "prep_time": enriched_data.get("prep_time", 0),
+            "cook_time": enriched_data.get("cook_time", 0),
+        }
         
         # Return JSON response
         response = JSONResponse(result)
@@ -78,6 +124,62 @@ async def extract_recipe_endpoint(request: Request):
 async def extract_recipe_options(request: Request):
     """Handle CORS preflight requests for the extract-recipe endpoint."""
     logger.debug(f"extract_recipe_options called with request: '{request}'")
+    response = PlainTextResponse("", status_code=200)
+    return add_cors_headers(response)
+
+# recipe by ID endpoint
+@mcp.custom_route("/recipe/{recipe_id}", methods=["GET"])
+async def get_recipe_by_id(request: Request):
+    """Get a recipe by its ID and return it as JSON."""
+    recipe_id = request.path_params.get('recipe_id');
+    logger.debug(f"get_recipe_by_id called with recipe_id: '{recipe_id}'")
+    try:
+        # Get the recipe from MongoDB
+        mongo_store = get_mongodb_store()
+        recipe = mongo_store.get_recipe(recipe_id)
+        
+        if not recipe:
+            response = JSONResponse({
+                "success": False,
+                "error": f"Recipe with ID '{recipe_id}' not found"
+            }, status_code=404)
+            return add_cors_headers(response)
+        
+        recipe["_id"] = recipe_id
+        # Normalize ingredients - handle both string and array formats
+        ingredients = recipe.get("ingredients", "")
+        if isinstance(ingredients, str):
+            recipe["ingredients"] = [ingredient.strip() for ingredient in ingredients.split('\n') if ingredient.strip()]
+        elif isinstance(ingredients, list):
+            recipe["ingredients"] = [str(ingredient).strip() for ingredient in ingredients if str(ingredient).strip()]
+        else:
+            recipe["ingredients"] = []
+        
+        # Convert datetime objects to ISO format strings for JSON serialization
+        for key, value in recipe.items():
+            if hasattr(value, 'isoformat'):  # Check if it's a datetime object
+                recipe[key] = value.isoformat()
+        
+        # Return the recipe as JSON
+        response = JSONResponse({
+            "success": True,
+            "recipe": recipe
+        })
+        return add_cors_headers(response)
+        
+    except Exception as e:
+        logger.error(f"Error fetching recipe {recipe_id}: {e}")
+        response = JSONResponse({
+            "success": False,
+            "error": f"Failed to fetch recipe: {str(e)}"
+        }, status_code=500)
+        return add_cors_headers(response)
+
+# CORS preflight endpoint for recipe by ID
+@mcp.custom_route("/recipe/{recipe_id}", methods=["OPTIONS"])
+async def get_recipe_by_id_options(request: Request):
+    """Handle CORS preflight requests for the recipe by ID endpoint."""
+    logger.debug(f"get_recipe_by_id_options called")
     response = PlainTextResponse("", status_code=200)
     return add_cors_headers(response)
 
@@ -150,8 +252,15 @@ def get_similar_recipes(recipe_id: str) -> List[Dict[str, Any]]:
         
         logger.debug(f"Found original recipe: {original_recipe.get('title', 'Unknown')}")
         
-        # Create a text representation of the recipe for embedding
-        recipe_text = f"{original_recipe.get('title', '')} {original_recipe.get('summary', '')} {' '.join(original_recipe.get('ingredients', []))}"
+        # Use embedding_prompt if available (new approach), otherwise fall back to old approach
+        if original_recipe.get('embedding_prompt'):
+            # Use the stored embedding_prompt for consistent semantic search
+            recipe_text = original_recipe['embedding_prompt']
+            logger.debug(f"Using embedding_prompt for vector search")
+        else:
+            # Fallback for recipes without embedding_prompt (backward compatibility)
+            recipe_text = f"{original_recipe.get('title', '')} {original_recipe.get('summary', '')} {' '.join(original_recipe.get('ingredients', []))}"
+            logger.debug(f"Using fallback text for vector search (no embedding_prompt)")
         
         # Get embeddings for the recipe
         recipe_vector = embed_query(recipe_text)
@@ -185,19 +294,20 @@ def find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]]:
     """
     try:
         # Extract recipe content from URL
-        from tools import extract_recipe_content, parse_recipe_content
-        recipe_content = extract_recipe_content(recipe_url)
-        if not recipe_content:
+        from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
+        recipe_data = extract_recipe_data(recipe_url)
+        if not recipe_data:
             return []
         
-        # Parse the recipe content
-        recipe_data = parse_recipe_content(recipe_content, recipe_url)
+        # Enrich with AI to get the same data structure as stored recipes
+        enriched_data = asyncio.run(enrich_recipe_with_ai(recipe_data))
         
-        # Create text representation for embedding
-        recipe_text = f"{recipe_data.get('title', '')} {recipe_data.get('summary', '')} {' '.join(recipe_data.get('ingredients', []))}"
+        # Generate natural language summary (embedding_prompt) for vector search
+        # This ensures we're searching with the same semantic representation
+        embedding_prompt = asyncio.run(generate_embedding_prompt(enriched_data))
         
-        # Get embeddings for the recipe
-        recipe_vector = embed_query(recipe_text)
+        # Get embeddings for the recipe using the embedding_prompt
+        recipe_vector = embed_query(embedding_prompt)
         
         # Search for similar recipes using vector similarity (Qdrant)
         vector_store = get_vector_store()
@@ -210,7 +320,7 @@ def find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]]:
         return []
 
 @mcp.tool
-def extract_and_store_recipe(url: str) -> Dict[str, Any]:
+async def extract_and_store_recipe(url: str) -> Dict[str, Any]:
     """
     Extract recipe content from a URL, enrich with AI, and store in databases.
     
@@ -221,30 +331,32 @@ def extract_and_store_recipe(url: str) -> Dict[str, Any]:
         Dictionary with success status and recipe information
     """
     try:
-        from tools import extract_recipe_content, parse_recipe_content, enrich_recipe_with_ai
+        from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
         
         # Extract recipe content
-        recipe_content = extract_recipe_content(url)
-        if not recipe_content:
+        recipe_data = extract_recipe_data(url)
+        if not recipe_data:
             return {
                 "success": False,
                 "error": f"Could not extract recipe content from URL: {url}"
             }
         
-        # Parse recipe content
-        recipe_data = parse_recipe_content(recipe_content, url)
-        
         # Enrich with AI
-        enriched_data = enrich_recipe_with_ai(recipe_data)
+        enriched_data = await enrich_recipe_with_ai(recipe_data)
         
-        # Save to MongoDB
+        # Generate natural language summary (embedding_prompt) for vector search
+        # This matches the TypeScript approach exactly
+        embedding_prompt = await generate_embedding_prompt(enriched_data)
+        
+        # Save to MongoDB with embedding_prompt
         mongo_store = get_mongodb_store()
-        recipe_id = mongo_store.save_recipe(enriched_data)
+        recipe_id = mongo_store.save_recipe(enriched_data, embedding_prompt)
         
-        # Generate embeddings and save to vector store (Qdrant)
-        recipe_text = f"{enriched_data.get('title', '')} {enriched_data.get('summary', '')} {' '.join(enriched_data.get('ingredients', []))}"
-        recipe_vector = embed_query(recipe_text)
+        # Generate embeddings using ONLY the embedding_prompt (not the full recipe text)
+        # This ensures identical semantic meaning with the TypeScript implementation
+        recipe_vector = embed_query(embedding_prompt)
         
+        # Store in vector store with full recipe data as metadata
         vector_store = get_vector_store()
         vector_store.add_recipe(recipe_id, recipe_vector, enriched_data)
         
@@ -257,7 +369,7 @@ def extract_and_store_recipe(url: str) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        logger.error(f"Error extracting and storing recipe: {e}")
+        logger.error(f"Error in extract_and_store_recipe: {e}")
         return {
             "success": False,
             "error": str(e)

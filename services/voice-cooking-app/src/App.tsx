@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import RecipeDetailPage from './pages/RecipeDetailPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
@@ -21,6 +22,14 @@ const AppRoutes = (): JSX.Element => {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/dashboard/:recipeId" 
+          element={
+            <ProtectedRoute>
+              <RecipeDetailPage />
             </ProtectedRoute>
           } 
         />

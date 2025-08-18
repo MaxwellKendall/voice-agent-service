@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 from typing import Dict, Any, List, Optional
+from bson import ObjectId
 from pymongo import MongoClient
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, Distance, VectorParams
@@ -114,38 +115,46 @@ class MongoDBStore:
     
     def __init__(self):
         self.client = get_mongodb_client()
-        self.db = self.client.recipe_agent
-        self.collection = self.db.recipes
+        self.db = self.client.recipes
+        self.collection = self.db.parsed_recipes
     
     def get_recipe(self, recipe_id: str) -> Optional[Dict[str, Any]]:
         """Get a recipe by ID."""
         try:
-            recipe = self.collection.find_one({"_id": recipe_id})
+            recipe = self.collection.find_one({"_id": ObjectId(recipe_id)})
             return recipe
         except Exception as e:
             logger.error(f"Error getting recipe: {e}")
             return None
     
-    def save_recipe(self, recipe_data: Dict[str, Any]) -> str:
+    def save_recipe(self, recipe_data: Dict[str, Any], embedding_prompt: Optional[str] = None) -> str:
         """Save a recipe to MongoDB."""
         try:
-            # Generate ID if not provided
-            if "_id" not in recipe_data:
-                recipe_data["_id"] = str(uuid.uuid4())
+            if "_id" in recipe_data:
+                recipe_data["_id"] = None
             
             # Add timestamps
             recipe_data["created_at"] = datetime.utcnow()
             recipe_data["updated_at"] = datetime.utcnow()
             
-            # Upsert the recipe
-            self.collection.replace_one(
-                {"_id": recipe_data["_id"]},
+            # Add embedding_prompt if provided
+            if embedding_prompt:
+                recipe_data["embedding_prompt"] = embedding_prompt
+                recipe_data["vector_embedded"] = True  # Mark as ready for vector embedding
+            
+            # Upsert the recipe ( for some reason the "link" is not defined, we also do not have category)
+            doc = self.collection.find_one_and_replace(
+                {"link": recipe_data["link"]},
                 recipe_data,
-                upsert=True
+                upsert=True,
+                return_document=True
             )
             
-            logger.info(f"Saved recipe to MongoDB: {recipe_data['_id']}")
-            return recipe_data["_id"]
+            # Get the ID from the returned document
+            recipe_id = str(doc["_id"])
+            
+            logger.info(f"Saved recipe to MongoDB: {recipe_id}")
+            return recipe_id
         except Exception as e:
             logger.error(f"Error saving recipe: {e}")
             raise

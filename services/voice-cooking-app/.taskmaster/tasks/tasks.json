@@ -130,7 +130,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -143,7 +143,7 @@
         "dependencies": [
           4
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -210,11 +210,80 @@
         ],
         "status": "pending",
         "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Refactor Dashboard for Individual Recipe Routes",
+        "description": "Implement dedicated routes for individual recipes with a new /dashboard/{recipeId} path, allowing direct access to specific recipes and improving navigation structure.",
+        "details": "1. Update React Router configuration to support parameterized routes:\n   - Add new route `/dashboard/:recipeId` in the main router configuration\n   - Create a new RecipeDetailPage component that accepts and uses the recipeId parameter\n   - Implement loading states and error handling for invalid recipe IDs\n\n2. Modify the recipe data fetching logic:\n   - Create a new API function to fetch a single recipe by ID from Supabase\n   - Implement caching strategy to avoid redundant fetches\n   - Handle loading/error states appropriately\n\n3. Update the main dashboard component:\n   - Refactor recipe card components to include links to individual recipe pages\n   - Implement navigation to individual recipe page after successful extraction\n   - Add breadcrumb navigation for improved user experience\n\n4. Enhance URL sharing capabilities:\n   - Ensure URLs are properly formatted for sharing (SEO-friendly)\n   - Add copy link functionality on recipe detail pages\n   - Implement proper metadata for link previews when shared\n\n5. Update state management:\n   - Ensure recipe state is properly managed between dashboard and detail views\n   - Implement proper data flow between components\n   - Consider using React Context or Redux for global state if needed\n\n6. Maintain mobile responsiveness:\n   - Ensure all new components follow the existing mobile-first approach\n   - Test navigation patterns on mobile devices",
+        "testStrategy": "1. Unit Testing:\n   - Test the new RecipeDetailPage component with various recipe IDs\n   - Verify proper handling of valid and invalid recipe IDs\n   - Test API functions for fetching individual recipes\n\n2. Integration Testing:\n   - Verify navigation flow from dashboard to individual recipe pages\n   - Test URL parameter handling and data fetching\n   - Ensure proper state management between views\n\n3. User Flow Testing:\n   - Test the complete user journey from recipe extraction to viewing individual recipe\n   - Verify redirect after successful extraction works correctly\n   - Test navigation between dashboard and individual recipes\n\n4. URL and Sharing Testing:\n   - Verify direct access to recipe pages via URL works correctly\n   - Test copying and sharing recipe URLs\n   - Ensure shared links open the correct recipe\n\n5. Responsive Design Testing:\n   - Test all new routes and components on various screen sizes\n   - Verify mobile navigation patterns work correctly\n   - Check that UI elements adapt appropriately to different devices\n\n6. Browser Compatibility:\n   - Test in Chrome, Firefox, Safari, and Edge\n   - Verify history API and routing works consistently across browsers",
+        "status": "done",
+        "dependencies": [
+          3,
+          4,
+          5
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Recipe Service Function to Fetch by ID",
+            "description": "Develop a new service function that fetches a single recipe from Supabase using the provided recipeId parameter.",
+            "dependencies": [],
+            "details": "Implement an API call to Supabase that retrieves recipe data by ID. Ensure proper error handling and consider caching strategies to minimize redundant fetches.",
+            "status": "done",
+            "testStrategy": "Unit test the service function with valid and invalid IDs. Mock Supabase responses to verify error handling and caching."
+          },
+          {
+            "id": 2,
+            "title": "Create RecipeDetailPage Component",
+            "description": "Build a new RecipeDetailPage React component that displays recipe details based on the recipeId route parameter.",
+            "dependencies": [
+              "11.1"
+            ],
+            "details": "Use React Router's useParams hook to access recipeId. Fetch recipe data using the service function. Implement loading and error states for invalid or missing IDs.",
+            "status": "done",
+            "testStrategy": "Unit test the component with various recipeId values. Verify correct rendering, loading, and error states."
+          },
+          {
+            "id": 3,
+            "title": "Add Parameterized Route in App.tsx",
+            "description": "Update the main router configuration to include a new dynamic route for individual recipes at /dashboard/:recipeId.",
+            "dependencies": [
+              "11.2"
+            ],
+            "details": "Modify App.tsx to add <Route path='/dashboard/:recipeId' element={<RecipeDetailPage />} /> using React Router v6. Ensure the route correctly passes the recipeId parameter to the component.",
+            "status": "done",
+            "testStrategy": "Integration test navigation to /dashboard/:recipeId. Confirm the correct component renders and receives the parameter."
+          },
+          {
+            "id": 4,
+            "title": "Refactor DashboardPage to Redirect After Extraction",
+            "description": "Update DashboardPage logic to redirect users to the new recipe detail route after successful recipe extraction.",
+            "dependencies": [
+              "11.3"
+            ],
+            "details": "Modify the extraction flow so that, upon success, users are navigated to /dashboard/{recipeId}. Update recipe card links to use the new route.",
+            "status": "done",
+            "testStrategy": "Integration test extraction flow and navigation. Verify users are redirected to the correct detail page after extraction."
+          },
+          {
+            "id": 5,
+            "title": "Update Navigation and URL Handling",
+            "description": "Enhance navigation and URL sharing capabilities for individual recipe pages, including SEO-friendly URLs and link preview metadata.",
+            "dependencies": [
+              "11.4"
+            ],
+            "details": "Implement breadcrumb navigation, copy link functionality, and proper metadata for link previews. Ensure URLs are formatted for sharing and SEO.",
+            "status": "done",
+            "testStrategy": "Test URL sharing, breadcrumb navigation, and link previews. Validate SEO metadata and copy link functionality."
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-08-13T13:25:50.866Z",
-      "updated": "2025-08-15T00:46:17.121Z",
+      "updated": "2025-08-18T20:50:43.325Z",
       "description": "Tasks for master context"
     }
   }
