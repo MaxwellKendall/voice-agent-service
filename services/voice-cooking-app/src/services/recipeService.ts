@@ -4,6 +4,21 @@ export interface RecipeExtractionRequest {
 
 export interface RecipeExtractionResponse {
   success: boolean
+  data?: {
+    id?: string
+    title?: string
+    description?: string
+    ingredients?: string[]
+    instructions?: string[]
+    prepTime?: string
+    cookTime?: string
+    totalTime?: string
+    servings?: string
+    difficulty?: string
+    cuisine?: string
+    tags?: string[]
+    image?: string
+  }
   recipe_id?: string
   title?: string
   link?: string
@@ -45,7 +60,7 @@ export interface RecipeByIdResponse {
   error?: string
 }
 
-const RECIPE_API_URL = 'http://localhost:8000'
+const RECIPE_API_URL = import.meta.env.VITE_MCP_API_URL;
 
 export const extractRecipe = async (url: string): Promise<RecipeExtractionResponse> => {
   try {

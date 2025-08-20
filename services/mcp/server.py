@@ -129,7 +129,7 @@ async def extract_recipe_options(request: Request):
 
 # recipe by ID endpoint
 @mcp.custom_route("/recipe/{recipe_id}", methods=["GET"])
-async def get_recipe_by_id(request: Request):
+async def get_recipe_by_id_endpoint(request: Request):
     """Get a recipe by its ID and return it as JSON."""
     recipe_id = request.path_params.get('recipe_id');
     logger.debug(f"get_recipe_by_id called with recipe_id: '{recipe_id}'")
@@ -192,6 +192,25 @@ async def recipe_resource(recipe_id: str) -> dict:
         mongo_store = get_mongodb_store()
         recipe = mongo_store.get_recipe(recipe_id)
         
+        if not recipe:
+            raise ValueError(f"Recipe with ID '{recipe_id}' not found")
+        
+        return recipe
+        
+    except Exception as e:
+        logger.error(f"Error fetching recipe {recipe_id}: {e}")
+        raise ValueError(f"Failed to fetch recipe: {str(e)}")
+
+@mcp.tool
+def get_recipe_by_id(recipe_id: str) -> dict:
+    """Fetch a recipe from MongoDB by its ID."""
+    logger.debug(f"get_recipe_by_id called with recipe_id: '{recipe_id}'")
+    try:
+        # Get the recipe from MongoDB
+        mongo_store = get_mongodb_store()
+        recipe = mongo_store.get_recipe(recipe_id)
+        recipe["_id"] = recipe_id
+
         if not recipe:
             raise ValueError(f"Recipe with ID '{recipe_id}' not found")
         

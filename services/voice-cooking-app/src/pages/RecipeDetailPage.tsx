@@ -2,6 +2,7 @@ import React, { JSX, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import RecipeDisplay from '../components/RecipeDisplay'
+import CookMode from '../components/CookMode'
 import { getRecipeById, RecipeByIdResponse } from '../services/recipeService'
 
 const RecipeDetailPage = (): JSX.Element => {
@@ -11,6 +12,7 @@ const RecipeDetailPage = (): JSX.Element => {
   const [recipe, setRecipe] = useState<RecipeByIdResponse['recipe'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isCookModeActive, setIsCookModeActive] = useState(false)
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -43,8 +45,11 @@ const RecipeDetailPage = (): JSX.Element => {
   }, [recipeId])
 
   const handleStartCooking = () => {
-    // TODO: Navigate to cook mode
-    console.log('Starting cook mode with recipe:', recipe)
+    setIsCookModeActive(true)
+  }
+
+  const handleExitCookMode = () => {
+    setIsCookModeActive(false)
   }
 
   const handleBackToDashboard = () => {
@@ -88,6 +93,7 @@ const RecipeDetailPage = (): JSX.Element => {
     success: true,
     data: {
       success: true,
+      id: recipe?._id, // Add the recipe ID
       title: recipe?.title,
       description: recipe?.description,
       ingredients: recipe?.ingredients,
@@ -222,11 +228,18 @@ const RecipeDetailPage = (): JSX.Element => {
 
         {/* Main Content */}
         <div className="py-8">
-          <RecipeDisplay
-            recipe={transformedRecipe.data}
-            onStartCooking={handleStartCooking}
-            onBack={handleAddAnotherRecipe}
-          />
+          {isCookModeActive ? (
+            <CookMode
+              recipe={transformedRecipe.data}
+              onExit={handleExitCookMode}
+            />
+          ) : (
+            <RecipeDisplay
+              recipe={transformedRecipe.data}
+              onStartCooking={handleStartCooking}
+              onBack={handleAddAnotherRecipe}
+            />
+          )}
         </div>
       </div>
     </div>

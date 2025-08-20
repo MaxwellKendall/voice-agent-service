@@ -9,6 +9,8 @@ import json
 import logging
 import asyncio
 import traceback
+import base64
+import tempfile
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -49,6 +51,43 @@ except Exception as e:
 
 # Initialize FastAPI app
 app = FastAPI(title="Cooking Assistant Agent Server", version="1.0.0")
+
+async def generate_tts_audio(text: str) -> Optional[str]:
+    """Generate TTS audio from text using OpenAI TTS API."""
+    try:
+        logger.info(f"Generating TTS audio for text: {text[:100]}...")
+        
+        # Create a temporary file to store the audio
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+            temp_path = temp_file.name
+        
+        # Generate audio using OpenAI TTS
+        response = client.audio.speech.create(
+            model="tts-1",  # OpenAI's TTS model
+            voice="alloy",  # You can choose: alloy, echo, fable, onyx, nova, shimmer
+            input=text
+        )
+        
+        # Save the audio to the temporary file
+        with open(temp_path, "wb") as audio_file:
+            for chunk in response.iter_bytes():
+                audio_file.write(chunk)
+        
+        # Read the audio file and convert to base64
+        with open(temp_path, "rb") as audio_file:
+            audio_data = audio_file.read()
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+        
+        # Clean up the temporary file
+        os.unlink(temp_path)
+        
+        logger.info(f"TTS audio generated successfully, size: {len(audio_data)} bytes")
+        return audio_base64
+        
+    except Exception as e:
+        logger.error(f"Error generating TTS audio: {e}")
+        logger.error(traceback.format_exc())
+        return None
 
 # Add CORS middleware
 app.add_middleware(
@@ -113,8 +152,7 @@ class ConnectionManager:
         """Send an error message to a client."""
         await self.send_message(client_id, {
             "type": error_type,
-            "content": error_message,
-            "timestamp": asyncio.get_event_loop().time()
+            "content": error_message
         })
 
 # Global connection manager
@@ -248,8 +286,7 @@ async def handle_text_message(client_id: str, text: str, recipe_id: Optional[str
         # Add user message to conversation history
         manager.conversations[client_id].append({
             "role": "user",
-            "content": text,
-            "timestamp": asyncio.get_event_loop().time()
+            "content": text
         })
         
         # Send typing indicator
@@ -261,14 +298,17 @@ async def handle_text_message(client_id: str, text: str, recipe_id: Optional[str
         # Add assistant response to conversation history
         manager.conversations[client_id].append({
             "role": "assistant", 
-            "content": response,
-            "timestamp": asyncio.get_event_loop().time()
+            "content": response
         })
         
-        # Send response
+        # Generate TTS audio for the response
+        audio_base64 = await generate_tts_audio(response)
+        
+        # Send response with audio
         await manager.send_message(client_id, {
             "type": "response",
-            "content": response
+            "content": response,
+            "audio": audio_base64
         })
         
     except Exception as e:
@@ -293,10 +333,22 @@ async def get_ai_response(client_id: str, user_message: str, recipe_id: Optional
         conversation = manager.conversations[client_id]
         
         # Build system message with recipe context
-        system_message = "You are a highly specialized expert in cooking. Your job is to help the user cook a specific recipe. Anticipate direct questions and answer them directly and concisely." 
-        if recipe_id:
-            system_message += f" The user is currently cooking recipe ID: {recipe_id}. Use the resource at data://recipe/{recipe_id} to get the recipe details."
-        
+        system_message = f"""
+You are a hands-free cooking assistant. Your role is to guide the user step-by-step through cooking a specific recipe.  
+
+The recipe data for the session is located at: data://recipe/{recipe_id}  
+
+Context: This is the active recipe we are working on. You should treat this recipe as the sole source of truth for ingredients, steps, and instructions.  
+
+Goals:  
+- Help the user understand and prepare the recipe one step at a time.  
+- Be conversational and adaptive (e.g., repeat, clarify, or simplify instructions when asked).  
+- Track progress through the recipe, remembering which step the user is on.  
+- Offer practical cooking tips (timing cues, substitutions, safety reminders) where useful.  
+- Only reference the current recipe; do not suggest unrelated recipes unless explicitly asked.  
+
+You may access the recipe data via the MCP resource provided. Always ground your guidance in that data. 
+        """
         # Prepare tools configuration
         tools = [{
             "type": "mcp",
@@ -307,7 +359,8 @@ async def get_ai_response(client_id: str, user_message: str, recipe_id: Optional
                 "search_recipes", 
                 "get_similar_recipes",
                 "find_similar_recipes_from_url",
-                "extract_and_store_recipe"
+                "extract_and_store_recipe",
+                "get_recipe_by_id"
             ],
         }]
         
@@ -318,7 +371,7 @@ async def get_ai_response(client_id: str, user_message: str, recipe_id: Optional
                     client.responses.create,
                     model=OPENAI_MODEL,
                     tools=tools,
-                    input=conversation + user_message,
+                    input=conversation,
                     instructions=system_message
                 ),
                 timeout=30.0
@@ -328,23 +381,7 @@ async def get_ai_response(client_id: str, user_message: str, recipe_id: Optional
                 return resp.output_text
             else:
                 return "I'm sorry, I couldn't generate a response. Please try again."
-                
-        except asyncio.TimeoutError:
-            logger.error(f"OpenAI API timeout for client {client_id}")
-            return "I'm taking longer than expected to respond. Please try again."
-            
-        except RateLimitError:
-            logger.error(f"OpenAI rate limit exceeded for client {client_id}")
-            return "I'm receiving too many requests right now. Please wait a moment and try again."
-            
-        except APITimeoutError:
-            logger.error(f"OpenAI API timeout for client {client_id}")
-            return "The service is taking longer than expected. Please try again."
-            
-        except APIConnectionError:
-            logger.error(f"OpenAI API connection error for client {client_id}")
-            return "I'm having trouble connecting to my services. Please check your internet connection and try again."
-            
+
         except APIError as e:
             logger.error(f"OpenAI API error for client {client_id}: {e}")
             return "I'm experiencing technical difficulties. Please try again later."
