@@ -30,13 +30,27 @@
             "justMyCode": false
         },
         {
-            "name": "Launch Dice MCP Server",
+            "name": "Launch Agent Service",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/services/mcp/examples/dice_server.py",
+            "program": "${workspaceFolder}/services/agent/server.py",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/services/mcp",
-            "python": "${workspaceFolder}/services/mcp/venv/bin/python",
+            "cwd": "${workspaceFolder}/services/agent",
+            "python": "${workspaceFolder}/services/agent/venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/services/mcp"
+            },
+            "args": [],
+            "justMyCode": false
+        },
+        {
+            "name": "Launch Agent Service: Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/services/agent/test_server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/services/agent",
+            "python": "${workspaceFolder}/services/agent/venv/bin/python",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/services/mcp"
             },

@@ -149,15 +149,88 @@
       {
         "id": 6,
         "title": "Cook Mode Interface and Microphone Access",
-        "description": "Implement full-screen Cook Mode UI, request microphone permissions, and highlight current recipe step.",
-        "details": "Use React state to manage current step. Request microphone access via Web Speech API (`window.SpeechRecognition`). Display real-time status indicators and voice command feedback. Handle permission errors gracefully.",
-        "testStrategy": "Test Cook Mode entry, microphone permission flow, and step highlighting. Validate UI responsiveness and error handling.",
-        "priority": "high",
+        "description": "Implement a cooking assistant agent backend on Railway and a full-screen Cook Mode UI with multimodal input support.",
+        "status": "in-progress",
         "dependencies": [
           5
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "First develop a backend agent deployed on Railway that supports users while cooking. The agent should handle multiple input modalities (images, speech, text), use web search tools and MCP, access the current recipe as a resource, and provide human-sounding voice responses. After the backend is working, implement the frontend Cook Mode UI with React state to manage current step, request microphone/camera access, display real-time status indicators, and handle permission errors gracefully.",
+        "testStrategy": "For backend: Test agent deployment, multimodal input processing, recipe context handling, and voice response quality. For frontend: Test Cook Mode entry, permission flows for microphone/camera, step highlighting, and UI responsiveness across devices.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Develop Railway-deployed cooking assistant agent",
+            "description": "Create a specialized backend agent for supporting users during cooking",
+            "status": "in-progress",
+            "dependencies": [],
+            "details": "<info added on 2025-08-20T00:56:00.584Z>\n# Railway-Deployed Cooking Assistant Agent Implementation\n\n## Implementation Details\n- Created `cooking_assistant.py` - Core agent using OpenAI Agents SDK with MCP integration\n- Built `cooking_server.py` - FastAPI server with WebSocket and HTTP endpoints\n- Configured deployment with Dockerfile and railway.json\n- Documented deployment process in DEPLOYMENT.md\n- Maintained minimal dependencies (8 essential packages)\n\n## Key Features\n- Integrated MCPTool from OpenAI Agents SDK\n- Implemented limited MCP tools: get_recipe_by_id, search_recipes, get_similar_recipes\n- Added web search capabilities for cooking tips\n- Established real-time WebSocket communication\n- Created HTTP API endpoints\n- Prepared for Railway deployment\n- Optimized dependencies\n\n## Agent Capabilities\n- Recipe context awareness via MCP server with autonomous tool selection\n- Web search functionality for cooking techniques and tips\n- Conversational, encouraging response style\n- Real-time cooking assistance\n\n## Architecture\n- Direct MCP integration using MCPTool with allowed_tools list for security\n- Agent-driven tool selection without custom wrapper functions\n- Simplified input processing for text and speech (image processing removed)\n\n## Next Steps\n- Deploy to Railway\n- Test with real recipe data\n- Integrate with frontend WebSocket client\n</info added on 2025-08-20T00:56:00.584Z>",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement multimodal input processing",
+            "description": "Enable the agent to process and respond to images, speech, and text inputs",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Integrate web search and MCP tooling",
+            "description": "Connect the agent to web search capabilities and our core MCP for enhanced assistance",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Add recipe context handling",
+            "description": "Enable the agent to access and understand the current recipe as a resource",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement voice response generation",
+            "description": "Create human-sounding voice responses for the cooking assistant",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Develop Cook Mode UI frontend",
+            "description": "Build the full-screen Cook Mode interface after backend agent is working",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement permission requests for microphone and camera",
+            "description": "Add proper permission flows for accessing device microphone and camera",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 8,
+            "title": "Create current step highlighting and navigation",
+            "description": "Implement UI for highlighting the current recipe step and navigating between steps",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 7,
@@ -283,7 +356,7 @@
     ],
     "metadata": {
       "created": "2025-08-13T13:25:50.866Z",
-      "updated": "2025-08-18T20:50:43.325Z",
+      "updated": "2025-08-20T00:44:59.084Z",
       "description": "Tasks for master context"
     }
   }
