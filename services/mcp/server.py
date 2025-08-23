@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Recipe Agent MCP Server using FastMCP.
+Recipe Agent MCP Server using FastAPI with FastMCP mounted.
 """
 
 import os
@@ -8,14 +8,11 @@ import random
 import sys
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
-from starlette.requests import Request
-from starlette.responses import PlainTextResponse
-from starlette.responses import JSONResponse
-from starlette.middleware import Middleware
-from starlette.middleware.cors import CORSMiddleware
 import asyncio
-
 import uvicorn
 
 # Add the current directory to Python path for imports
@@ -38,28 +35,20 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is required")
 
+# Create FastAPI app
+api = FastAPI(title="Recipe Agent API", version="1.0.0")
+
+# Add CORS middleware
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 # Create FastMCP server
 mcp = FastMCP(name="recipe-agent")
-
-# CORS middleware configuration
-custom_middleware = [
-    Middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-    ),
-]
-
-# Helper function to add CORS headers to responses
-def add_cors_headers(response):
-    """Add CORS headers to a response."""
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    return response
 
 """
 Basic functions called by tools and exposed as endpoints.
@@ -100,11 +89,7 @@ async def _get_recipe_by_id(recipe_id: str) -> dict:
         recipe = mongo_store.get_recipe(recipe_id)
         
         if not recipe:
-            response = JSONResponse({
-                "success": False,
-                "error": f"Recipe with ID '{recipe_id}' not found"
-            }, status_code=404)
-            return response
+            raise ValueError(f"Recipe with ID '{recipe_id}' not found")
         
         recipe["_id"] = recipe_id
         # Normalize ingredients - handle both string and array formats
@@ -179,15 +164,15 @@ async def _get_similar_recipes(recipe_id: str) -> List[Dict[str, Any]]:
 
 async def _find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]]:
     """
-    @TODO: this should first check mongo to see if we have the recipe via the URL.
     Find recipes similar to a recipe from a web URL using vector similarity.
     
     Args:
-        recipe_url: The URL of the recipe to find similar recipes for
+        recipe_url: The URL of the webpage containing the recipe to find similar recipes for
         
     Returns:
         A list of similar recipes based on vector similarity
     """
+    logger.debug(f"find_similar_recipes_from_url called with recipe_url: '{recipe_url}'")
     try:
         # Extract recipe content from URL
         from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
@@ -220,11 +205,12 @@ async def _extract_and_store_recipe(url: str) -> Dict[str, Any]:
     Extract recipe content from a URL, enrich with AI, and store in databases.
     
     Args:
-        url: The URL of the recipe to extract and store
+        url: The URL of the webpage containing the recipe
         
     Returns:
-        Dictionary with success status and recipe information
+        A dictionary containing the extracted and stored recipe information
     """
+    logger.debug(f"extract_and_store_recipe called with url: '{url}'")
     try:
         from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
         
@@ -270,20 +256,13 @@ async def _extract_and_store_recipe(url: str) -> Dict[str, Any]:
             "error": str(e)
         }
 
-"""
-Endpoints called by frontend agents
-"""
-# health check endpoint
-@mcp.custom_route("/health", methods=["GET", "OPTIONS"])
-async def health_check(request: Request):
-    logger.debug(f"health_check called with request: '{request}'")
-    """Health check endpoint for Railway deployment."""
-    response = PlainTextResponse("OK")
-    return response
 
-# ephemeral API key endpoint
-@mcp.custom_route("/generate-ephemeral-key", methods=["POST", "OPTIONS"])
-async def generate_ephemeral_key(request: Request):
+"""
+FastAPI Routes (replacing @custom_route decorators)
+"""
+
+@api.post("/generate-ephemeral-key")
+async def generate_ephemeral_key():
     """Generate an ephemeral API key for client-side OpenAI Realtime API usage."""
     logger.debug("generate_ephemeral_key called")
     try:
@@ -309,59 +288,49 @@ async def generate_ephemeral_key(request: Request):
                 
                 if ephemeral_key:
                     logger.info("Successfully generated ephemeral API key")
-                    result = {
+                    return {
                         "success": True,
                         "api_key": ephemeral_key,
                         "expires_at": (datetime.now() + timedelta(hours=24)).isoformat()
                     }
                 else:
                     logger.error("No ephemeral key found in response")
-                    result = {
+                    return {
                         "success": False,
                         "error": "No ephemeral key found in OpenAI response"
                     }
             else:
                 logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
-                result = {
+                return {
                     "success": False,
                     "error": f"OpenAI API error: {response.status_code}"
                 }
         
-        response = JSONResponse(result)
-        return add_cors_headers(response)
-        
     except Exception as e:
         logger.error(f"Failed to generate ephemeral key: {e}")
-        result = {
-            "success": False,
-            "error": str(e)
-        }
-        response = JSONResponse(result, status_code=500)
-        return add_cors_headers(response)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
 
-# recipe by ID endpoint
-@mcp.custom_route("/recipe/{recipe_id}", methods=["GET", "OPTIONS"])
-async def get_recipe_by_id_endpoint(request: Request):
+@api.get("/recipe/{recipe_id}")
+async def get_recipe_by_id_endpoint(recipe_id: str):
     """Get a recipe by its ID and return it as JSON."""
     try:
-        recipe_id = request.path_params.get('recipe_id');
         recipe = await _get_recipe_by_id(recipe_id)
-        response = JSONResponse({
+        return {
             "success": True,
             "recipe": recipe
-        })
-        return add_cors_headers(response)
+        }
         
     except Exception as e:
         logger.error(f"Error fetching recipe {recipe_id}: {e}")
-        response = JSONResponse({
-            "success": False,
-            "error": f"Failed to fetch recipe: {str(e)}"
-        }, status_code=500)
-        return add_cors_headers(response)
+        return JSONResponse(
+            {"success": False, "error": f"Failed to fetch recipe: {str(e)}"},
+            status_code=500
+        )
 
-# Search recipes endpoint
-@mcp.custom_route("/search-recipes", methods=["POST", "OPTIONS"])
+@api.post("/search-recipes")
 async def search_recipes_endpoint(request: Request):
     """Search for recipes using natural language queries."""
     logger.debug("search_recipes_endpoint called")
@@ -370,62 +339,53 @@ async def search_recipes_endpoint(request: Request):
         query = body.get("query")
         
         if not query:
-            response = JSONResponse({
-                "success": False,
-                "error": "Missing 'query' parameter"
-            }, status_code=400)
-            return add_cors_headers(response)
+            return JSONResponse(
+                {"success": False, "error": "Missing 'query' parameter"},
+                status_code=400
+            )
         
         # Call the search_recipes implementation function
         recipes = await _search_recipes(query)
         
-        response = JSONResponse({
+        return {
             "success": True,
             "recipes": recipes
-        })
-        return add_cors_headers(response)
+        }
         
     except Exception as e:
         logger.error(f"Error in search_recipes_endpoint: {e}")
-        response = JSONResponse({
-            "success": False,
-            "error": str(e)
-        }, status_code=500)
-        return add_cors_headers(response)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
 
-# Get similar recipes endpoint
-@mcp.custom_route("/similar-recipes/{recipe_id}", methods=["GET", "OPTIONS"])
-async def get_similar_recipes_endpoint(request: Request):
+@api.get("/similar-recipes/{recipe_id}")
+async def get_similar_recipes_endpoint(recipe_id: str):
     """Get recipes similar to a specific recipe."""
-    recipe_id = request.path_params.get('recipe_id')
     logger.debug(f"get_similar_recipes_endpoint called with recipe_id: '{recipe_id}'")
     try:
         if not recipe_id:
-            response = JSONResponse({
-                "success": False,
-                "error": "Missing recipe_id parameter"
-            }, status_code=400)
-            return add_cors_headers(response)
+            return JSONResponse(
+                {"success": False, "error": "Missing recipe_id parameter"},
+                status_code=400
+            )
         
         # Call the get_similar_recipes implementation function
         similar_recipes = await _get_similar_recipes(recipe_id)
         
-        response = JSONResponse({
+        return {
             "success": True,
             "similar_recipes": similar_recipes
-        })
-        return add_cors_headers(response)
+        }
         
     except Exception as e:
         logger.error(f"Error in get_similar_recipes_endpoint: {e}")
-        response = JSONResponse({
-            "success": False,
-            "error": str(e)
-        }, status_code=500)
-        return add_cors_headers(response)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
 
-# Find similar recipes from URL endpoint
-@mcp.custom_route("/similar-recipes-from-url", methods=["POST", "OPTIONS"])
+@api.post("/similar-recipes-from-url")
 async def find_similar_recipes_from_url_endpoint(request: Request):
     """Find recipes similar to a recipe from a web URL."""
     logger.debug("find_similar_recipes_from_url_endpoint called")
@@ -434,31 +394,27 @@ async def find_similar_recipes_from_url_endpoint(request: Request):
         recipe_url = body.get("recipe_url")
         
         if not recipe_url:
-            response = JSONResponse({
-                "success": False,
-                "error": "Missing 'recipe_url' parameter"
-            }, status_code=400)
-            return add_cors_headers(response)
+            return JSONResponse(
+                {"success": False, "error": "Missing 'recipe_url' parameter"},
+                status_code=400
+            )
         
         # Call the find_similar_recipes_from_url implementation function
         similar_recipes = await _find_similar_recipes_from_url(recipe_url)
         
-        response = JSONResponse({
+        return {
             "success": True,
             "similar_recipes": similar_recipes
-        })
-        return add_cors_headers(response)
+        }
         
     except Exception as e:
         logger.error(f"Error in find_similar_recipes_from_url_endpoint: {e}")
-        response = JSONResponse({
-            "success": False,
-            "error": str(e)
-        }, status_code=500)
-        return add_cors_headers(response)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
 
-# Extract and store recipe endpoint (async version)
-@mcp.custom_route("/extract-and-store-recipe", methods=["POST", "OPTIONS"])
+@api.post("/extract-and-store-recipe")
 async def extract_and_store_recipe_endpoint(request: Request):
     """Extract recipe content from a URL, enrich with AI, and store in databases."""
     logger.debug("extract_and_store_recipe_endpoint called")
@@ -467,25 +423,26 @@ async def extract_and_store_recipe_endpoint(request: Request):
         url = body.get("url")
         
         if not url:
-            response = JSONResponse({
-                "success": False,
-                "error": "Missing 'url' parameter"
-            }, status_code=400)
-            return add_cors_headers(response)
+            return JSONResponse(
+                {"success": False, "error": "Missing 'url' parameter"},
+                status_code=400
+            )
         
         # Call the extract_and_store_recipe implementation function
         result = await _extract_and_store_recipe(url)
         
-        response = JSONResponse(result)
-        return add_cors_headers(response)
+        return result
         
     except Exception as e:
         logger.error(f"Error in extract_and_store_recipe_endpoint: {e}")
-        response = JSONResponse({
-            "success": False,
-            "error": str(e)
-        }, status_code=500)
-        return add_cors_headers(response)
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
+"""
+MCP Resources
+"""
 
 @mcp.resource("data://recipe/{recipe_id}")
 async def recipe_resource(recipe_id: str) -> dict:
@@ -506,7 +463,7 @@ async def recipe_resource(recipe_id: str) -> dict:
         raise ValueError(f"Failed to fetch recipe: {str(e)}")
 
 """
-Tools called by backend agents connecting to this MCP server.
+MCP Tools called by backend agents connecting to this MCP server.
 """
 @mcp.tool
 async def get_recipe_by_id(recipe_id: str) -> dict:
@@ -533,6 +490,9 @@ async def extract_and_store_recipe(url: str) -> Dict[str, Any]:
     """Extract recipe content from a URL, enrich with AI, and store in databases."""
     return await _extract_and_store_recipe(url)
 
+# Mount MCP at /mcp
+api.mount("/mcp", mcp.http_app())
+
 if __name__ == "__main__":
     # Validate configuration
     try:
@@ -544,6 +504,5 @@ if __name__ == "__main__":
         exit(1)
     
     # Start server
-    logger.info("Starting Recipe Agent MCP Server...")
-    app = mcp.http_app(path="/mcp", middleware=custom_middleware, stateless_http=True, transport="streamable-http", json_response=True)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    logger.info("Starting Recipe Agent API Server...")
+    uvicorn.run(api, host="0.0.0.0", port=8000)
