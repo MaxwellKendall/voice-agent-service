@@ -52,6 +52,15 @@ custom_middleware = [
     ),
 ]
 
+# Helper function to add CORS headers to responses
+def add_cors_headers(response):
+    """Add CORS headers to a response."""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
 """
 Basic functions called by tools and exposed as endpoints.
 """
@@ -319,7 +328,7 @@ async def generate_ephemeral_key(request: Request):
                 }
         
         response = JSONResponse(result)
-        return response
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Failed to generate ephemeral key: {e}")
@@ -328,7 +337,7 @@ async def generate_ephemeral_key(request: Request):
             "error": str(e)
         }
         response = JSONResponse(result, status_code=500)
-        return response
+        return add_cors_headers(response)
 
 # recipe by ID endpoint
 @mcp.custom_route("/recipe/{recipe_id}", methods=["GET", "OPTIONS"])
@@ -341,7 +350,7 @@ async def get_recipe_by_id_endpoint(request: Request):
             "success": True,
             "recipe": recipe
         })
-        return response
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Error fetching recipe {recipe_id}: {e}")
@@ -349,7 +358,7 @@ async def get_recipe_by_id_endpoint(request: Request):
             "success": False,
             "error": f"Failed to fetch recipe: {str(e)}"
         }, status_code=500)
-        return response
+        return add_cors_headers(response)
 
 # Search recipes endpoint
 @mcp.custom_route("/search-recipes", methods=["POST", "OPTIONS"])
@@ -365,7 +374,7 @@ async def search_recipes_endpoint(request: Request):
                 "success": False,
                 "error": "Missing 'query' parameter"
             }, status_code=400)
-            return response
+            return add_cors_headers(response)
         
         # Call the search_recipes implementation function
         recipes = await _search_recipes(query)
@@ -374,7 +383,7 @@ async def search_recipes_endpoint(request: Request):
             "success": True,
             "recipes": recipes
         })
-        return response
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Error in search_recipes_endpoint: {e}")
@@ -382,7 +391,7 @@ async def search_recipes_endpoint(request: Request):
             "success": False,
             "error": str(e)
         }, status_code=500)
-        return response
+        return add_cors_headers(response)
 
 # Get similar recipes endpoint
 @mcp.custom_route("/similar-recipes/{recipe_id}", methods=["GET", "OPTIONS"])
@@ -396,7 +405,7 @@ async def get_similar_recipes_endpoint(request: Request):
                 "success": False,
                 "error": "Missing recipe_id parameter"
             }, status_code=400)
-            return response
+            return add_cors_headers(response)
         
         # Call the get_similar_recipes implementation function
         similar_recipes = await _get_similar_recipes(recipe_id)
@@ -405,7 +414,7 @@ async def get_similar_recipes_endpoint(request: Request):
             "success": True,
             "similar_recipes": similar_recipes
         })
-        return response
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Error in get_similar_recipes_endpoint: {e}")
@@ -413,7 +422,7 @@ async def get_similar_recipes_endpoint(request: Request):
             "success": False,
             "error": str(e)
         }, status_code=500)
-        return response
+        return add_cors_headers(response)
 
 # Find similar recipes from URL endpoint
 @mcp.custom_route("/similar-recipes-from-url", methods=["POST", "OPTIONS"])
@@ -429,16 +438,16 @@ async def find_similar_recipes_from_url_endpoint(request: Request):
                 "success": False,
                 "error": "Missing 'recipe_url' parameter"
             }, status_code=400)
-            return response
+            return add_cors_headers(response)
         
         # Call the find_similar_recipes_from_url implementation function
-        similar_recipes = _find_similar_recipes_from_url(recipe_url)
+        similar_recipes = await _find_similar_recipes_from_url(recipe_url)
         
         response = JSONResponse({
             "success": True,
             "similar_recipes": similar_recipes
         })
-        return response
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Error in find_similar_recipes_from_url_endpoint: {e}")
@@ -446,7 +455,7 @@ async def find_similar_recipes_from_url_endpoint(request: Request):
             "success": False,
             "error": str(e)
         }, status_code=500)
-        return response
+        return add_cors_headers(response)
 
 # Extract and store recipe endpoint (async version)
 @mcp.custom_route("/extract-and-store-recipe", methods=["POST", "OPTIONS"])
@@ -462,13 +471,13 @@ async def extract_and_store_recipe_endpoint(request: Request):
                 "success": False,
                 "error": "Missing 'url' parameter"
             }, status_code=400)
-            return response
+            return add_cors_headers(response)
         
         # Call the extract_and_store_recipe implementation function
         result = await _extract_and_store_recipe(url)
         
         response = JSONResponse(result)
-        return response
+        return add_cors_headers(response)
         
     except Exception as e:
         logger.error(f"Error in extract_and_store_recipe_endpoint: {e}")
@@ -476,7 +485,7 @@ async def extract_and_store_recipe_endpoint(request: Request):
             "success": False,
             "error": str(e)
         }, status_code=500)
-        return response
+        return add_cors_headers(response)
 
 @mcp.resource("data://recipe/{recipe_id}")
 async def recipe_resource(recipe_id: str) -> dict:
