@@ -21,8 +21,8 @@ const DashboardPage = (): JSX.Element => {
 
   const handleRecipeExtracted = (recipe: RecipeExtractionResponse) => {
     if (recipe.success && recipe.recipe_id) {
-      // Redirect to the recipe detail page
-      navigate(`/dashboard/${recipe.recipe_id}`)
+      // Redirect to the Realtime recipe detail page
+      navigate(`/realtime/${recipe.recipe_id}`)
     }
   }
 

@@ -1,12 +1,11 @@
 import React, { JSX, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import RecipeDisplay from '../components/RecipeDisplay'
-import CookMode from '../components/CookMode'
+import RealtimeRecipeDisplay from '../components/RealtimeRecipeDisplay'
 import RealtimeCookMode from '../components/RealtimeCookMode'
 import { getRecipeById, RecipeByIdResponse } from '../services/recipeService'
 
-const RecipeDetailPage = (): JSX.Element => {
+const RealtimeRecipeDetailPage = (): JSX.Element => {
   const { recipeId } = useParams<{ recipeId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -14,7 +13,6 @@ const RecipeDetailPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isCookModeActive, setIsCookModeActive] = useState(false)
-  const [isRealtimeModeActive, setIsRealtimeModeActive] = useState(false)
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -54,14 +52,6 @@ const RecipeDetailPage = (): JSX.Element => {
     setIsCookModeActive(false)
   }
 
-  const handleStartRealtimeCooking = () => {
-    setIsRealtimeModeActive(true)
-  }
-
-  const handleExitRealtimeCookMode = () => {
-    setIsRealtimeModeActive(false)
-  }
-
   const handleBackToDashboard = () => {
     navigate('/dashboard')
   }
@@ -98,28 +88,25 @@ const RecipeDetailPage = (): JSX.Element => {
     return String(timeValue)
   }
 
-  // Transform the recipe data to match the RecipeDisplay component's expected format
+  // Transform the recipe data to match the RealtimeRecipeDisplay component's expected format
   const transformedRecipe = {
     success: true,
     data: {
       success: true,
-      id: recipe?._id, // Add the recipe ID
+      id: recipe?._id,
       title: recipe?.title,
       description: recipe?.description,
       ingredients: recipe?.ingredients,
       instructions: recipe?.instruction_details,
-      prepTime: formatTime(recipe?.prepTime || recipe?.prep_time),
-      cookTime: formatTime(recipe?.cookTime || recipe?.cook_time),
-      totalTime: formatTime(recipe?.totalTime),
+      prepTime: formatTime(recipe?.prep_time),
+      cookTime: formatTime(recipe?.cook_time),
+      totalTime: formatTime(recipe?.total_time),
       servings: recipe?.servings,
-      difficulty: recipe?.difficulty,
       cuisine: recipe?.cuisine,
+      difficulty: recipe?.difficulty,
       tags: recipe?.tags,
       image: recipe?.image,
-      link: recipe?.link,
-      summary: recipe?.summary,
-      category: recipe?.category,
-      difficulty_level: recipe?.difficulty_level
+      difficulty_level: recipe?.difficulty_level,
     }
   }
 
@@ -127,8 +114,8 @@ const RecipeDetailPage = (): JSX.Element => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading recipe...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading recipe...</p>
         </div>
       </div>
     )
@@ -138,26 +125,22 @@ const RecipeDetailPage = (): JSX.Element => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-red-500 text-6xl mb-4">😕</div>
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">Recipe Not Found</h1>
-            <p className="text-gray-600 mb-6">
-              {error || 'The recipe you\'re looking for doesn\'t exist or has been removed.'}
-            </p>
-            <div className="space-y-3">
-              <button
-                onClick={handleBackToDashboard}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
-              >
-                Back to Dashboard
-              </button>
-              <button
-                onClick={handleAddAnotherRecipe}
-                className="w-full border border-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors duration-200"
-              >
-                Add Another Recipe
-              </button>
-            </div>
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Recipe Not Found</h1>
+          <p className="text-gray-600 mb-6">{error || 'The recipe you\'re looking for doesn\'t exist.'}</p>
+          <div className="space-y-3">
+            <button
+              onClick={handleBackToDashboard}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Back to Dashboard
+            </button>
+            <button
+              onClick={handleAddAnotherRecipe}
+              className="w-full border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            >
+              Add Another Recipe
+            </button>
           </div>
         </div>
       </div>
@@ -239,20 +222,14 @@ const RecipeDetailPage = (): JSX.Element => {
         {/* Main Content */}
         <div className="py-8">
           {isCookModeActive ? (
-            <CookMode
+            <RealtimeCookMode
               recipe={transformedRecipe.data}
               onExit={handleExitCookMode}
             />
-          ) : isRealtimeModeActive ? (
-            <RealtimeCookMode
-              recipe={transformedRecipe.data}
-              onExit={handleExitRealtimeCookMode}
-            />
           ) : (
-            <RecipeDisplay
+            <RealtimeRecipeDisplay
               recipe={transformedRecipe.data}
               onStartCooking={handleStartCooking}
-              onStartRealtimeCooking={handleStartRealtimeCooking}
               onBack={handleAddAnotherRecipe}
             />
           )}
@@ -262,4 +239,4 @@ const RecipeDetailPage = (): JSX.Element => {
   )
 }
 
-export default RecipeDetailPage
+export default RealtimeRecipeDetailPage

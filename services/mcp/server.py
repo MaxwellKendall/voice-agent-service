@@ -24,6 +24,11 @@ load_dotenv()
 from database import get_vector_store, get_mongodb_store
 from embeddings import embed_query
 
+# OpenAI API key for ephemeral key generation
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is required")
+
 # Create FastMCP server
 mcp = FastMCP(name="recipe-agent")
 
@@ -47,6 +52,64 @@ async def health_check(request: Request):
     """Health check endpoint for Railway deployment."""
     response = PlainTextResponse("OK")
     return add_cors_headers(response)
+
+# ephemeral API key endpoint
+@mcp.custom_route("/generate-ephemeral-key", methods=["POST", "OPTIONS"])
+async def generate_ephemeral_key(request: Request):
+    """Generate an ephemeral API key for client-side OpenAI Realtime API usage."""
+    logger.debug("generate_ephemeral_key called")
+    try:
+        import httpx
+        from datetime import datetime, timedelta
+        
+        # Call OpenAI's ephemeral key generation endpoint
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/realtime/sessions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o-realtime-preview-2025-06-03"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                ephemeral_key = data.get("client_secret", {}).get("value")
+                
+                if ephemeral_key:
+                    logger.info("Successfully generated ephemeral API key")
+                    result = {
+                        "success": True,
+                        "api_key": ephemeral_key,
+                        "expires_at": (datetime.now() + timedelta(hours=24)).isoformat()
+                    }
+                else:
+                    logger.error("No ephemeral key found in response")
+                    result = {
+                        "success": False,
+                        "error": "No ephemeral key found in OpenAI response"
+                    }
+            else:
+                logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
+                result = {
+                    "success": False,
+                    "error": f"OpenAI API error: {response.status_code}"
+                }
+        
+        response = JSONResponse(result)
+        return add_cors_headers(response)
+        
+    except Exception as e:
+        logger.error(f"Failed to generate ephemeral key: {e}")
+        result = {
+            "success": False,
+            "error": str(e)
+        }
+        response = JSONResponse(result, status_code=500)
+        return add_cors_headers(response)
 
 # recipe extraction endpoint
 @mcp.custom_route("/extract-recipe", methods=["POST"])

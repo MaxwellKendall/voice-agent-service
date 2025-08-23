@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import RecipeDetailPage from './pages/RecipeDetailPage'
+import RealtimeRecipeDetailPage from './pages/RealtimeRecipeDetailPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
@@ -30,6 +31,14 @@ const AppRoutes = (): JSX.Element => {
           element={
             <ProtectedRoute>
               <RecipeDetailPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/realtime/:recipeId" 
+          element={
+            <ProtectedRoute>
+              <RealtimeRecipeDetailPage />
             </ProtectedRoute>
           } 
         />
