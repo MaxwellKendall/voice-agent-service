@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { RealtimeAgent, RealtimeSession } from '@openai/agents-realtime'
+import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents-realtime'
 import { RecipeExtractionResponse } from '../services/recipeService'
+import { z } from 'zod'
+import { findSimilarRecipesFromUrlTool, getRecipeByIdTool, getSimilarRecipesTool, searchRecipesTool } from '../tools/realtimeTools'
 
 interface RealtimeCookModeProps {
   recipe: RecipeExtractionResponse['data']
@@ -51,29 +53,29 @@ const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) =
       setError(null)
 
       // Generate ephemeral key
-      const apiKey = await generateEphemeralKey()
+      const apiKey = ephemeralKey ? ephemeralKey : await generateEphemeralKey()
+          // Create the cooking assistant agent
+          const agent = new RealtimeAgent({
+            name: 'Cooking Assistant',
+            instructions: `You are a hands-free cooking assistant. Your role is to guide the user step-by-step through cooking a specific recipe.
 
-      // Create the cooking assistant agent
-      const agent = new RealtimeAgent({
-        name: 'Cooking Assistant',
-        instructions: `You are a hands-free cooking assistant. Your role is to guide the user step-by-step through cooking a specific recipe.
+        Recipe Context:
+        - Recipe ID: ${recipe?.id}
+        - Recipe Title: ${recipe?.title || 'Unknown'}
+        - Recipe Description: ${recipe?.description || 'No description available'}
 
-Recipe Context:
-- Recipe ID: ${recipe?.id}
-- Recipe Title: ${recipe?.title || 'Unknown'}
-- Recipe Description: ${recipe?.description || 'No description available'}
+        Your Goals:
+        - Help the user understand and prepare the recipe one step at a time
+        - Be conversational and adaptive (repeat, clarify, or simplify instructions when asked)
+        - Track progress through the recipe, remembering which step the user is on
+        - Offer practical cooking tips (timing cues, substitutions, safety reminders) where useful
+        - Only reference the current recipe; do not suggest unrelated recipes unless explicitly asked
 
-Your Goals:
-- Help the user understand and prepare the recipe one step at a time
-- Be conversational and adaptive (repeat, clarify, or simplify instructions when asked)
-- Track progress through the recipe, remembering which step the user is on
-- Offer practical cooking tips (timing cues, substitutions, safety reminders) where useful
-- Only reference the current recipe; do not suggest unrelated recipes unless explicitly asked
+        You have access to tools to search for recipes, get recipe details, and find similar recipes. Use these tools when needed to provide better assistance.
 
-You have access to tools to search for recipes, get recipe details, and find similar recipes. Use these tools when needed to provide better assistance.
-
-Be concise but helpful. Remember this is a voice conversation, so keep responses natural and conversational.`,
-      })
+                          Be concise but helpful. Remember this is a voice conversation, so keep responses natural and conversational.`,
+            tools: [searchRecipesTool, getRecipeByIdTool, getSimilarRecipesTool, findSimilarRecipesFromUrlTool]
+          })
 
       // Create the Realtime session
       const session = new RealtimeSession(agent, {
