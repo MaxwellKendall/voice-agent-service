@@ -1,37 +1,15 @@
-import React, { JSX,useState } from 'react'
-import { extractRecipe, RecipeExtractionResponse } from '../services/recipeService'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface RecipeEntryFormProps {
-  onRecipeExtracted: (recipe: RecipeExtractionResponse) => void
+  onSuccess: () => void
 }
 
-const RecipeEntryForm = ({ onRecipeExtracted }: RecipeEntryFormProps): JSX.Element => {
+const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [urlError, setUrlError] = useState<string | null>(null)
-
-  const validateUrl = (url: string): boolean => {
-    try {
-      new URL(url)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    console.log('URL input changed:', value) // Debug log
-    setUrl(value)
-    setError(null)
-    
-    if (value && !validateUrl(value)) {
-      setUrlError('Please enter a valid URL')
-    } else {
-      setUrlError(null)
-    }
-  }
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,92 +19,111 @@ const RecipeEntryForm = ({ onRecipeExtracted }: RecipeEntryFormProps): JSX.Eleme
       return
     }
 
-    if (!validateUrl(url)) {
-      setError('Please enter a valid URL')
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
     try {
-      const result = await extractRecipe(url)
-      
-      if (result.success) {
-        onRecipeExtracted(result)
-        setUrl('')
+      setIsLoading(true)
+      setError(null)
+
+      const response = await fetch('http://localhost:8000/extract-and-store-recipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ recipe_url: url.trim() }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to extract recipe: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.recipe) {
+        // Navigate to the recipe detail page
+        navigate(`/realtime/${data.recipe.id}`)
+        onSuccess()
       } else {
-        setError(result.error || 'Failed to extract recipe')
+        throw new Error(data.error || 'Failed to extract recipe')
       }
     } catch (err) {
-      setError('An unexpected error occurred')
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to extract recipe: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">
-        Add a Recipe
-      </h3>
-      <p className="text-gray-600 mb-6">
-        Paste any recipe URL and we'll extract the ingredients and instructions for you.
-      </p>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* URL Input */}
         <div>
           <label htmlFor="recipe-url" className="block text-sm font-medium text-gray-700 mb-2">
             Recipe URL
           </label>
-          <input
-            type="url"
-            id="recipe-url"
-            value={url}
-            onChange={handleUrlChange}
-            placeholder="https://example.com/recipe"
-            className={`w-full px-3 py-2 border rounded-md shadow-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              urlError ? 'border-red-300' : 'border-gray-300'
-            }`}
-            disabled={isLoading}
-          />
-          {urlError && (
-            <p className="mt-1 text-sm text-red-600">{urlError}</p>
-          )}
-          {/* Debug: Show current URL value */}
-          {url && (
-            <p className="mt-1 text-xs text-gray-500">Current URL: {url}</p>
-          )}
+          <div className="relative">
+            <input
+              type="url"
+              id="recipe-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com/recipe"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors"
+              disabled={isLoading}
+            />
+            {isLoading && (
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-gray-500">
+            Paste a URL from any cooking website to extract the recipe
+          </p>
         </div>
 
+        {/* Error Display */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-3">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Submit Button */}
         <button
           type="submit"
-          disabled={isLoading || !url.trim() || !!urlError}
-          className={`w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${
-            isLoading || !url.trim() || !!urlError
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-500 hover:bg-blue-600'
-          }`}
+          disabled={isLoading || !url.trim()}
+          className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Extracting Recipe...
-            </>
-          ) : (
-            'Extract Recipe'
-          )}
+          {isLoading ? 'Extracting Recipe...' : 'Extract Recipe'}
         </button>
       </form>
 
-      <div className="mt-4 text-xs text-gray-500">
-        <p>Supported sites: Most recipe websites including AllRecipes, Food Network, Epicurious, and more.</p>
+      {/* Supported Sites Info */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Supported Websites</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            'AllRecipes',
+            'Food Network',
+            'Epicurious',
+            'Bon Appétit',
+            'Serious Eats',
+            'King Arthur',
+            'Taste of Home',
+            'And many more...'
+          ].map((site) => (
+            <div key={site} className="text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded">
+              {site}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -1,121 +1,55 @@
-import React, { JSX, useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import RealtimeRecipeDisplay from '../components/RealtimeRecipeDisplay'
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { RecipeExtractionResponse } from '../services/recipeService'
 import RealtimeCookMode from '../components/RealtimeCookMode'
-import { getRecipeById, RecipeByIdResponse } from '../services/recipeService'
+import RealtimeRecipeDisplay from '../components/RealtimeRecipeDisplay'
 
-const RealtimeRecipeDetailPage = (): JSX.Element => {
-  const { recipeId } = useParams<{ recipeId: string }>()
+const RealtimeRecipeDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const [recipe, setRecipe] = useState<RecipeByIdResponse['recipe'] | null>(null)
+  const [recipe, setRecipe] = useState<RecipeExtractionResponse['data'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isCookModeActive, setIsCookModeActive] = useState(false)
+  const [isCookMode, setIsCookMode] = useState(false)
 
   useEffect(() => {
     const fetchRecipe = async () => {
-      if (!recipeId) {
-        setError('No recipe ID provided')
-        setLoading(false)
-        return
-      }
+      if (!id) return
 
       try {
         setLoading(true)
         setError(null)
         
-        const response = await getRecipeById(recipeId)
+        const response = await fetch(`http://localhost:8000/recipe/${id}`)
         
-        if (response.success && response.recipe) {
-          setRecipe(response.recipe)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch recipe: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        
+        if (data.success) {
+          setRecipe(data.recipe)
         } else {
-          setError(response.error || 'Failed to fetch recipe')
+          throw new Error(data.error || 'Failed to fetch recipe')
         }
       } catch (err) {
-        setError('An unexpected error occurred')
-        console.error('Error fetching recipe:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        setError(`Error loading recipe: ${errorMessage}`)
       } finally {
         setLoading(false)
       }
     }
 
     fetchRecipe()
-  }, [recipeId])
-
-  const handleStartCooking = () => {
-    setIsCookModeActive(true)
-  }
-
-  const handleExitCookMode = () => {
-    setIsCookModeActive(false)
-  }
-
-  const handleBackToDashboard = () => {
-    navigate('/dashboard')
-  }
-
-  const handleAddAnotherRecipe = () => {
-    navigate('/dashboard')
-  }
-
-  // Helper function to format time values
-  const formatTime = (timeValue: any): string | undefined => {
-    if (!timeValue) return undefined
-    
-    // If it's already a string, check if it contains "minutes"
-    if (typeof timeValue === 'string') {
-      if (timeValue.toLowerCase().includes('minutes')) {
-        if (timeValue === '0 minutes') {
-          return '--'
-        }
-        return timeValue
-      }
-      // If it's a number as string, add minutes
-      if (!isNaN(Number(timeValue))) {
-        const numValue = Number(timeValue)
-        return numValue === 0 ? '--' : `${timeValue} minutes`
-      }
-      return timeValue
-    }
-    
-    // If it's a number, add minutes
-    if (typeof timeValue === 'number') {
-      return timeValue === 0 ? '--' : `${timeValue} minutes`
-    }
-    
-    return String(timeValue)
-  }
-
-  // Transform the recipe data to match the RealtimeRecipeDisplay component's expected format
-  const transformedRecipe = {
-    success: true,
-    data: {
-      success: true,
-      id: recipe?._id,
-      title: recipe?.title,
-      description: recipe?.description,
-      ingredients: recipe?.ingredients,
-      instructions: recipe?.instruction_details,
-      prepTime: formatTime(recipe?.prep_time),
-      cookTime: formatTime(recipe?.cook_time),
-      totalTime: formatTime(recipe?.total_time),
-      servings: recipe?.servings,
-      cuisine: recipe?.cuisine,
-      difficulty: recipe?.difficulty,
-      tags: recipe?.tags,
-      image: recipe?.image,
-      difficulty_level: recipe?.difficulty_level,
-    }
-  }
+  }, [id])
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading recipe...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading recipe...</p>
         </div>
       </div>
     )
@@ -123,23 +57,19 @@ const RealtimeRecipeDetailPage = (): JSX.Element => {
 
   if (error || !recipe) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Recipe Not Found</h1>
-          <p className="text-gray-600 mb-6">{error || 'The recipe you\'re looking for doesn\'t exist.'}</p>
-          <div className="space-y-3">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full text-center">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <h2 className="text-lg font-medium text-gray-900 mb-2">Recipe Not Found</h2>
+            <p className="text-gray-600 mb-6">{error || 'The recipe you are looking for could not be found.'}</p>
             <button
-              onClick={handleBackToDashboard}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              onClick={() => navigate('/dashboard')}
+              className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
             >
               Back to Dashboard
-            </button>
-            <button
-              onClick={handleAddAnotherRecipe}
-              className="w-full border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Add Another Recipe
             </button>
           </div>
         </div>
@@ -147,93 +77,41 @@ const RealtimeRecipeDetailPage = (): JSX.Element => {
     )
   }
 
+  if (isCookMode) {
+    return <RealtimeCookMode recipe={recipe} onExit={() => setIsCookMode(false)} />
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div className="flex items-center">
-                <button
-                  onClick={handleBackToDashboard}
-                  className="mr-4 text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100"
-                  aria-label="Back to dashboard"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    Recipe Details
-                  </h1>
-                  {/* Breadcrumb Navigation */}
-                  <nav className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-                    <Link 
-                      to="/dashboard" 
-                      className="hover:text-blue-600 transition-colors"
-                    >
-                      Dashboard
-                    </Link>
-                    <span>/</span>
-                    <span className="text-gray-700 font-medium truncate max-w-xs">
-                      {recipe.title}
-                    </span>
-                  </nav>
-                </div>
-              </div>
-              
-              {/* Recipe Actions */}
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleAddAnotherRecipe}
-                  className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100"
-                  aria-label="Add another recipe"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => {
-                    // Copy current URL to clipboard
-                    navigator.clipboard.writeText(window.location.href)
-                      .then(() => {
-                        // You could add a toast notification here
-                        console.log('Recipe URL copied to clipboard')
-                      })
-                      .catch(err => {
-                        console.error('Failed to copy URL:', err)
-                      })
-                  }}
-                  className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100"
-                  aria-label="Copy recipe link"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </button>
-              </div>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-medium text-gray-900">Recipe Details</h1>
+              <p className="text-sm text-gray-500">View and cook with voice assistance</p>
             </div>
           </div>
+          <button
+            onClick={() => setIsCookMode(true)}
+            className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+          >
+            Start Voice Cooking
+          </button>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="py-8">
-          {isCookModeActive ? (
-            <RealtimeCookMode
-              recipe={transformedRecipe.data}
-              onExit={handleExitCookMode}
-            />
-          ) : (
-            <RealtimeRecipeDisplay
-              recipe={transformedRecipe.data}
-              onStartCooking={handleStartCooking}
-              onBack={handleAddAnotherRecipe}
-            />
-          )}
-        </div>
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <RealtimeRecipeDisplay recipe={recipe} />
       </div>
     </div>
   )

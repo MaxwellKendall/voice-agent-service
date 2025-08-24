@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents-realtime'
+import { RealtimeAgent, RealtimeSession } from '@openai/agents-realtime'
 import { RecipeExtractionResponse } from '../services/recipeService'
-import { z } from 'zod'
-import { findSimilarRecipesFromUrlTool, getRecipeByIdTool, getSimilarRecipesTool, searchRecipesTool } from '../tools/realtimeTools'
+import { allRealtimeTools } from '../tools/realtimeTools'
 
 interface RealtimeCookModeProps {
   recipe: RecipeExtractionResponse['data']
@@ -14,6 +13,8 @@ const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) =
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ephemeralKey, setEphemeralKey] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   
   const sessionRef = useRef<RealtimeSession | null>(null)
 
@@ -54,28 +55,29 @@ const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) =
 
       // Generate ephemeral key
       const apiKey = ephemeralKey ? ephemeralKey : await generateEphemeralKey()
-          // Create the cooking assistant agent
-          const agent = new RealtimeAgent({
-            name: 'Cooking Assistant',
-            instructions: `You are a hands-free cooking assistant. Your role is to guide the user step-by-step through cooking a specific recipe.
+      
+      // Create the cooking assistant agent
+      const agent = new RealtimeAgent({
+        name: 'Cooking Assistant',
+        instructions: `You are a hands-free cooking assistant. Your role is to guide the user step-by-step through cooking a specific recipe.
 
-        Recipe Context:
-        - Recipe ID: ${recipe?.id}
-        - Recipe Title: ${recipe?.title || 'Unknown'}
-        - Recipe Description: ${recipe?.description || 'No description available'}
+Recipe Context:
+- Recipe ID: ${recipe?.id}
+- Recipe Title: ${recipe?.title || 'Unknown'}
+- Recipe Description: ${recipe?.description || 'No description available'}
 
-        Your Goals:
-        - Help the user understand and prepare the recipe one step at a time
-        - Be conversational and adaptive (repeat, clarify, or simplify instructions when asked)
-        - Track progress through the recipe, remembering which step the user is on
-        - Offer practical cooking tips (timing cues, substitutions, safety reminders) where useful
-        - Only reference the current recipe; do not suggest unrelated recipes unless explicitly asked
+Your Goals:
+- Help the user understand and prepare the recipe one step at a time
+- Be conversational and adaptive (repeat, clarify, or simplify instructions when asked)
+- Track progress through the recipe, remembering which step the user is on
+- Offer practical cooking tips (timing cues, substitutions, safety reminders) where useful
+- Only reference the current recipe; do not suggest unrelated recipes unless explicitly asked
 
-        You have access to tools to search for recipes, get recipe details, and find similar recipes. Use these tools when needed to provide better assistance.
+You have access to tools to search for recipes, get recipe details, and find similar recipes. Use these tools when needed to provide better assistance.
 
-                          Be concise but helpful. Remember this is a voice conversation, so keep responses natural and conversational.`,
-            tools: [searchRecipesTool, getRecipeByIdTool, getSimilarRecipesTool, findSimilarRecipesFromUrlTool]
-          })
+Be concise but helpful. Remember this is a voice conversation, so keep responses natural and conversational.`,
+        tools: allRealtimeTools
+      })
 
       // Create the Realtime session
       const session = new RealtimeSession(agent, {
@@ -89,7 +91,6 @@ const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) =
       setIsConnected(true)
       setIsConnecting(false)
 
-      // Handle session events - simplified for now
       console.log('Session connected successfully')
 
     } catch (err) {
@@ -101,94 +102,177 @@ const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) =
   }
 
   // Disconnect from session
-  const disconnect = async () => {
+  const disconnectFromRealtime = async () => {
     if (sessionRef.current) {
+      sessionRef.current = null
+      setIsConnected(false)
+      setIsListening(false)
+      setIsSpeaking(false)
+    }
+  }
+
+  // Start listening
+  const startListening = async () => {
+    if (sessionRef.current && isConnected) {
       try {
-        // Close the session - the exact method may vary based on the API
-        // For now, we'll just set the ref to null
-        sessionRef.current = null
+        // The RealtimeSession handles listening automatically
+        setIsListening(true)
       } catch (err) {
-        console.error('Error disconnecting:', err)
+        console.error('Failed to start listening:', err)
+        setError('Failed to start listening')
       }
     }
-    setIsConnected(false)
+  }
+
+  // Stop listening
+  const stopListening = async () => {
+    if (sessionRef.current && isListening) {
+      try {
+        // The RealtimeSession handles listening automatically
+        setIsListening(false)
+      } catch (err) {
+        console.error('Failed to stop listening:', err)
+        setError('Failed to stop listening')
+      }
+    }
   }
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      disconnect()
+      disconnectFromRealtime()
     }
   }, [])
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Voice Cooking Assistant</h2>
-        <button
-          onClick={onExit}
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-        >
-          Exit Cook Mode
-        </button>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={onExit}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-medium text-gray-900">Voice Cooking Assistant</h1>
+              <p className="text-sm text-gray-500">Hands-free recipe guidance</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            <span className="text-sm text-gray-600">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Recipe Info */}
-      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-        <h3 className="text-lg font-semibold text-blue-800 mb-2">Current Recipe</h3>
-        <p className="text-blue-700">
-          <strong>Title:</strong> {recipe?.title || 'Unknown'}
-        </p>
-        <p className="text-blue-700">
-          <strong>ID:</strong> {recipe?.id || 'Unknown'}
-        </p>
-      </div>
-
-      {/* Connection Status */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : isConnecting ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-          <span className="text-sm font-medium">
-            {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Disconnected'}
-          </span>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        {/* Recipe Info */}
+        <div className="max-w-md w-full mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-2">
+              {recipe?.title || 'Recipe'}
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {recipe?.description || 'No description available'}
+            </p>
+          </div>
         </div>
 
+        {/* Connection Status */}
         {!isConnected && !isConnecting && (
-          <button
-            onClick={connectToRealtime}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Start Voice Assistant
-          </button>
+          <div className="max-w-md w-full mb-6">
+            <button
+              onClick={connectToRealtime}
+              className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+            >
+              Connect to Assistant
+            </button>
+          </div>
         )}
 
+        {/* Connecting State */}
+        {isConnecting && (
+          <div className="max-w-md w-full mb-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-gray-600">Connecting to assistant...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Connected State */}
         {isConnected && (
-          <button
-            onClick={disconnect}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Stop Voice Assistant
-          </button>
+          <div className="max-w-md w-full">
+            {/* Voice Controls */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-center space-x-4">
+                <button
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={isSpeaking}
+                  className={`flex items-center justify-center w-16 h-16 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isListening
+                      ? 'bg-red-500 hover:bg-red-600 focus:ring-red-500'
+                      : 'bg-gray-900 hover:bg-gray-800 focus:ring-gray-900'
+                  } ${isSpeaking ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isListening ? (
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                  )}
+                </button>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-900">
+                    {isListening ? 'Listening...' : isSpeaking ? 'Assistant speaking...' : 'Tap to speak'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isListening ? 'Tap to stop' : 'Ask for cooking guidance'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-blue-900 mb-2">How to use</h3>
+              <ul className="text-xs text-blue-800 space-y-1">
+                <li>• Tap the microphone to start speaking</li>
+                <li>• Ask questions about ingredients, steps, or timing</li>
+                <li>• Request clarification or repeat instructions</li>
+                <li>• The assistant will guide you through the recipe</li>
+              </ul>
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* Error Display */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
-
-      {/* Instructions */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">How to Use</h3>
-        <ul className="text-gray-700 space-y-1">
-          <li>• Click "Start Voice Assistant" to begin</li>
-          <li>• Grant microphone access when prompted</li>
-          <li>• Speak naturally to ask questions about the recipe</li>
-          <li>• The assistant will respond with voice and can help with cooking steps</li>
-          <li>• You can interrupt the assistant at any time</li>
-        </ul>
+        {/* Error Display */}
+        {error && (
+          <div className="max-w-md w-full mt-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex">
+                <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
