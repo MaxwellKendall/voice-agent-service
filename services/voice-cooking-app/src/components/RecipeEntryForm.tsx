@@ -28,7 +28,7 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ recipe_url: url.trim() }),
+        body: JSON.stringify({ url: url.trim() }),
       })
 
       if (!response.ok) {
