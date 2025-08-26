@@ -261,6 +261,11 @@ async def _extract_and_store_recipe(url: str) -> Dict[str, Any]:
 FastAPI Routes (replacing @custom_route decorators)
 """
 
+@api.get("/health")
+async def health_check():
+    """Health check endpoint for Railway deployment."""
+    return {"status": "ok"}
+
 @api.post("/generate-ephemeral-key")
 async def generate_ephemeral_key():
     """Generate an ephemeral API key for client-side OpenAI Realtime API usage."""
