@@ -314,5 +314,170 @@
       "updated": "2025-08-22T23:43:50.969Z",
       "description": "Tasks for master context"
     }
+  },
+  "feature-social-import": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Initialize Project Repository and Tooling",
+        "description": "Set up the project repository with version control, code style, and CI/CD pipeline.",
+        "details": "Initialize a Git repository. Configure Prettier and ESLint for code style enforcement. Set up GitHub Actions (or GitLab CI) for automated testing and linting. Use Node.js 20+ and TypeScript 5.x for backend services. Add .editorconfig and README with project overview.",
+        "testStrategy": "Verify repository setup by running lint, type-check, and test scripts in CI. Confirm code style enforcement and successful pipeline execution.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Design Recipe Data Schema",
+        "description": "Define and document the recipe object schema to ensure consistency across imports.",
+        "details": "Use TypeScript interfaces and JSON Schema to define the recipe object as per PRD. Include fields: title, source (platform, url, author), ingredients (name, quantity, unit), steps, images, confidence. Store schema in a shared module for reuse.",
+        "testStrategy": "Validate schema with sample data and run type-checks. Use JSON Schema validation in unit tests.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement TikTok oEmbed Fetcher",
+        "description": "Create a service to fetch TikTok post metadata using the official oEmbed endpoint.",
+        "details": "Use Axios 1.x or node-fetch 3.x to call TikTok's oEmbed endpoint (https://www.tiktok.com/oembed?url=...). Extract author, thumbnail, and description. Handle errors and invalid URLs gracefully. Do not fetch video/audio content.",
+        "testStrategy": "Mock oEmbed responses in unit tests. Test with valid and invalid TikTok URLs. Ensure compliance by verifying no video/audio is fetched.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Develop TikTok Recipe NLP Parser",
+        "description": "Parse recipe content from TikTok post descriptions using NLP.",
+        "details": "Use spaCy (Python) or compromise.js/NLP.js (Node.js) to extract ingredient lines and step-like instructions from the description. Implement regex for ingredient detection and sentence segmentation for steps. Assign a confidence score based on parsing success.",
+        "testStrategy": "Unit test with a variety of TikTok descriptions. Validate extraction accuracy and confidence scoring. Include edge cases with no recipe structure.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Pinterest Metadata Extractor",
+        "description": "Extract the 'Visit Site' canonical link from Pinterest post HTML/metadata.",
+        "details": "Use Cheerio 1.x or jsdom to parse Pinterest HTML. Locate the canonical 'Visit Site' link via meta tags or DOM traversal. Validate URL extraction and handle missing/invalid cases.",
+        "testStrategy": "Test with multiple Pinterest post HTML samples. Ensure correct extraction of external recipe URLs. Handle edge cases where link is missing.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Fetch and Parse External Recipe Pages",
+        "description": "Fetch HTML from external recipe pages and extract structured recipe data.",
+        "details": "Use Axios/node-fetch to fetch HTML. Parse for JSON-LD with @type: Recipe using Cheerio or jsonld.js. If JSON-LD is present, map fields to internal schema. Implement rate limiting and user-agent spoofing to avoid blocks.",
+        "testStrategy": "Test with popular food blogs and recipe sites. Validate JSON-LD extraction and schema mapping. Handle HTTP errors and anti-bot measures.",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Develop Fallback Heuristic Parser for Recipes",
+        "description": "Implement regex-based and heuristic parsing for sites without JSON-LD.",
+        "details": "Use regex to detect ingredient lists (e.g., lines with quantities/units) and segment instructions from HTML. Use Cheerio to extract relevant text blocks. Assign low confidence if fallback is used.",
+        "testStrategy": "Test with sites lacking JSON-LD. Validate ingredient and step extraction. Compare fallback results with manual review.",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Build Unified Recipe Import API",
+        "description": "Expose a RESTful API endpoint to handle TikTok and Pinterest recipe imports.",
+        "details": "Use Express 4.x or Fastify 4.x. POST endpoint accepts a URL and platform. Route to TikTok or Pinterest import logic. Return structured recipe object or fallback/manual-edit flag. Validate input and handle errors.",
+        "testStrategy": "Integration test API with various URLs. Validate correct routing, error handling, and response schema.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Manual Edit & Fallback UI",
+        "description": "Provide a UI for users to manually edit or complete recipes when parsing confidence is low.",
+        "details": "Use React 18+ with Material UI 5.x. Display parsed data with editable fields. Show fallback message and allow users to add missing ingredients/steps. Validate input before saving.",
+        "testStrategy": "UI tests for edit flow. Manual QA for fallback scenarios. Ensure data is saved correctly after edits.",
+        "priority": "medium",
+        "dependencies": [
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Integrate Import Flow with App Frontend",
+        "description": "Connect the import API to the app's frontend for seamless user experience.",
+        "details": "Add import form for TikTok/Pinterest URLs. Show progress, errors, and fallback UI as needed. Use React Query or SWR for API calls. Ensure accessibility and responsive design.",
+        "testStrategy": "End-to-end tests for import flow. Validate UI states for success, error, and fallback. Accessibility audit.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement Security, Compliance, and Rate Limiting",
+        "description": "Ensure all imports comply with platform policies and secure external requests.",
+        "details": "Do not fetch TikTok video/audio. Only fetch Pinterest external links. Use helmet.js for HTTP headers. Implement rate limiting with express-rate-limit. Log and monitor external requests for abuse.",
+        "testStrategy": "Security audit. Penetration testing for endpoint abuse. Verify compliance with TikTok and Pinterest terms.",
+        "priority": "high",
+        "dependencies": [
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Comprehensive Testing and Documentation",
+        "description": "Write tests and documentation for all import flows, parsers, and APIs.",
+        "details": "Use Jest 29+ for unit/integration tests. Write OpenAPI/Swagger docs for API. Document schema, edge cases, and manual edit flow. Add usage examples and troubleshooting.",
+        "testStrategy": "Achieve >90% test coverage. Validate documentation accuracy with sample walkthroughs.",
+        "priority": "medium",
+        "dependencies": [
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-24T01:58:56.125Z",
+      "updated": "2025-08-24T01:59:25.568Z",
+      "description": "Tasks for feature-social-import context"
+    }
   }
 }
