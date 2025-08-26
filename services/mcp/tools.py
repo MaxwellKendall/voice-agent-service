@@ -355,6 +355,26 @@ def is_tiktok_url(url: str) -> bool:
     except Exception:
         return False
 
+def is_pinterest_url(url: str) -> bool:
+    """Check if the URL is a Pinterest pin URL."""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        hostname = parsed.hostname.lower()
+        
+        # Check if it's a Pinterest domain
+        if not hostname or 'pinterest.com' not in hostname:
+            return False
+        
+        # Check if it has a pin path
+        path = parsed.path
+        if '/pin/' in path:
+            return True
+            
+        return False
+    except Exception:
+        return False
+
 def fetch_tiktok_oembed(url: str) -> Optional[Dict[str, Any]]:
     """Fetch TikTok post metadata using oEmbed endpoint."""
     try:
@@ -467,6 +487,99 @@ async def parse_tiktok_recipe(url: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error parsing TikTok recipe: {e}")
         return None
 
+def extract_pinterest_visit_link(url: str) -> Optional[str]:
+    """Extract the 'visit site' link from a Pinterest pin page."""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Look for the "visit site" link - Pinterest has various selectors for this
+        visit_link = None
+        
+        # Try multiple selectors that Pinterest might use
+        selectors = [
+            'a[href*="visit"]',  # Links containing "visit"
+            'a[data-test-id="visit-site"]',  # Pinterest's test ID
+            'a[aria-label*="visit"]',  # Aria labels containing "visit"
+            'a[href*="external"]',  # External links
+            'a[target="_blank"]',  # Links that open in new tab
+        ]
+        
+        for selector in selectors:
+            links = soup.select(selector)
+            for link in links:
+                href = link.get('href')
+                if href and not href.startswith('#'):
+                    # Skip internal Pinterest links
+                    if 'pinterest.com' not in href and not href.startswith('/'):
+                        visit_link = href
+                        break
+            if visit_link:
+                break
+        
+        # If no specific "visit" link found, look for any external link
+        if not visit_link:
+            external_links = soup.find_all('a', href=True)
+            for link in external_links:
+                href = link.get('href')
+                if href and not href.startswith('#') and not href.startswith('/'):
+                    if 'pinterest.com' not in href:
+                        visit_link = href
+                        break
+        
+        if visit_link:
+            # Ensure it's a complete URL
+            if visit_link.startswith('//'):
+                visit_link = 'https:' + visit_link
+            elif visit_link.startswith('/'):
+                visit_link = None  # Skip relative links
+                
+            logger.info(f"Found Pinterest visit link: {visit_link}")
+            return visit_link
+        else:
+            logger.warning(f"No visit link found on Pinterest page: {url}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error extracting Pinterest visit link: {e}")
+        return None
+
+def parse_pinterest_recipe(url: str) -> Optional[Dict[str, Any]]:
+    """Parse Pinterest recipe by extracting visit link and parsing the target site."""
+    try:
+        logger.info(f"Processing Pinterest URL: {url}")
+        
+        # Extract the visit site link
+        visit_link = extract_pinterest_visit_link(url)
+        if not visit_link:
+            logger.error(f"Could not extract visit link from Pinterest: {url}")
+            return None
+        
+        # Parse the target site using existing JSON-LD parser
+        recipe_data = parse_recipe_from_jsonld(visit_link)
+        if not recipe_data:
+            logger.error(f"Could not parse recipe from Pinterest visit link: {visit_link}")
+            return None
+        
+        # Add Pinterest source information
+        recipe_data['source'] = {
+            'platform': 'pinterest',
+            'pinterest_url': url,
+            'original_url': visit_link
+        }
+        
+        logger.info(f"Successfully extracted Pinterest recipe: {recipe_data.get('title', 'Unknown')}")
+        return recipe_data
+        
+    except Exception as e:
+        logger.error(f"Error parsing Pinterest recipe: {e}")
+        return None
+
 def parse_recipe_from_jsonld(url: str) -> Optional[Dict[str, Any]]:
     """Parse regular recipe from URL using web scraping."""
     try:
@@ -495,6 +608,8 @@ async def extract_recipe_data(url: str) -> Optional[Dict[str, Any]]:
         # Route to appropriate parser based on URL type
         if is_tiktok_url(url):
             return await parse_tiktok_recipe(url)
+        elif is_pinterest_url(url):
+            return parse_pinterest_recipe(url)
         else:
             return parse_recipe_from_jsonld(url)
         
