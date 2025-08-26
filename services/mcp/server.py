@@ -176,7 +176,7 @@ async def _find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]
     try:
         # Extract recipe content from URL
         from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
-        recipe_data = extract_recipe_data(recipe_url)
+        recipe_data = await extract_recipe_data(recipe_url)
         if not recipe_data:
             return []
         
@@ -215,7 +215,7 @@ async def _extract_and_store_recipe(url: str) -> Dict[str, Any]:
         from tools import extract_recipe_data, enrich_recipe_with_ai, generate_embedding_prompt
         
         # Extract recipe content
-        recipe_data = extract_recipe_data(url)
+        recipe_data = await extract_recipe_data(url)
         if not recipe_data:
             return {
                 "success": False,

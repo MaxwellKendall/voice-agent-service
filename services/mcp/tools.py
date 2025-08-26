@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 import uuid
+from pydantic import BaseModel
 import requests
 from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup
@@ -132,7 +133,7 @@ async def find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]]
         logger.info(f"Finding similar recipes for URL: {recipe_url}")
         
         # Extract recipe content from URL
-        recipe_data = extract_recipe_data(recipe_url)
+        recipe_data = await extract_recipe_data(recipe_url)
         if not recipe_data:
             logger.warning(f"Could not extract recipe content from URL: {recipe_url}")
             return []
@@ -170,7 +171,7 @@ async def extract_and_store_recipe(url: str) -> Dict[str, Any]:
         logger.info(f"Extracting and storing recipe from URL: {url}")
         
         # Extract recipe content
-        recipe_data = extract_recipe_data(url)
+        recipe_data = await extract_recipe_data(url)
         if not recipe_data:
             return {
                 "success": False,
@@ -319,8 +320,155 @@ Nutrition (per serving): {calories} kcal, {protein} protein, {carbs} carbs, {fat
         fallback_summary = f"{recipe_data.get('title', 'Recipe')} - {recipe_data.get('cuisine', '')} {recipe_data.get('category', 'dish')} with {', '.join(recipe_data.get('ingredients', []))[:100]}..."
         return fallback_summary
 
-def extract_recipe_data(url: str) -> Optional[Dict[str, Any]]:
-    """Extract recipe content from a web URL."""
+def clean_json_response(content: str) -> str:
+    """Clean JSON response by removing markdown formatting."""
+    content = content.strip()
+    
+    # Remove markdown code blocks
+    if content.startswith('```json'):
+        content = content[7:]
+    elif content.startswith('```'):
+        content = content[3:]
+    
+    if content.endswith('```'):
+        content = content[:-3]
+    
+    return content.strip()
+
+def is_tiktok_url(url: str) -> bool:
+    """Check if the URL is a TikTok post URL."""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        hostname = parsed.hostname.lower()
+        
+        # Check if it's a TikTok domain
+        if not hostname or 'tiktok.com' not in hostname:
+            return False
+        
+        # Check if it has a video path
+        path = parsed.path
+        if '/video/' in path or '/@' in path:
+            return True
+            
+        return False
+    except Exception:
+        return False
+
+def fetch_tiktok_oembed(url: str) -> Optional[Dict[str, Any]]:
+    """Fetch TikTok post metadata using oEmbed endpoint."""
+    try:
+        oembed_url = f"https://www.tiktok.com/oembed?url={requests.utils.quote(url)}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; RecipeApp/1.0)',
+            'Accept': 'application/json'
+        }
+        
+        response = requests.get(oembed_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Validate required fields
+        if not data.get('author_name') or not data.get('title'):
+            logger.warning(f"Missing required fields in TikTok oEmbed response: {data}")
+            return None
+            
+        return {
+            'author': data.get('author_name'),
+            'author_url': data.get('author_url'),
+            'description': data.get('title'),
+            'thumbnail': data.get('thumbnail_url'),
+            'thumbnail_width': data.get('thumbnail_width'),
+            'thumbnail_height': data.get('thumbnail_height')
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching TikTok oEmbed data: {e}")
+        return None
+    
+class TiktokRecipe(BaseModel):
+    title: str
+    ingredients: List[str]
+    instruction_details: List[str]
+
+async def parse_tiktok_description_with_ai(description: str) -> Optional[Dict[str, Any]]:
+    """Parse TikTok description using AI to extract recipe structure."""
+    try:
+        client = get_openai_client()
+    
+    
+        response = await asyncio.to_thread(
+            client.responses.parse,
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": "Extract the recipe information."},
+                {"role": "user", "content": description}
+            ],
+            text_format=TiktokRecipe
+        )
+        
+        content = response.output_text
+        
+        # Parse the JSON response
+        try:
+            recipe_data = json.loads(content)
+            
+            # Ensure required fields exist
+            if not recipe_data.get('title'):
+                recipe_data['title'] = 'TikTok Recipe'
+            if not recipe_data.get('ingredients'):
+                recipe_data['ingredients'] = []
+            if not recipe_data.get('instruction_details'):
+                recipe_data['instruction_details'] = []
+                
+            return recipe_data
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI response as JSON: {e}")
+            logger.error(f"AI Response: {content}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error parsing TikTok description with AI: {e}")
+        return None
+
+async def parse_tiktok_recipe(url: str) -> Optional[Dict[str, Any]]:
+    """Parse TikTok recipe from URL."""
+    try:
+        logger.info(f"Processing TikTok URL: {url}")
+        
+        # Fetch TikTok oEmbed metadata
+        tiktok_metadata = fetch_tiktok_oembed(url)
+        if not tiktok_metadata:
+            logger.error(f"Failed to fetch TikTok metadata for: {url}")
+            return None
+        
+        # Parse description with AI
+        recipe_data = await parse_tiktok_description_with_ai(tiktok_metadata['description'])
+        
+        if not recipe_data:
+            logger.error(f"Failed to parse TikTok description with AI: {url}")
+            return None
+        
+        # Add source information
+        recipe_data['link'] = url
+        recipe_data['source'] = tiktok_metadata.get('author_url', 'Unknown')
+
+        # Add summary if not present
+        if not recipe_data.get('summary'):
+            recipe_data['summary'] = tiktok_metadata['description']
+        
+        logger.info(f"Successfully extracted TikTok recipe: {recipe_data.get('title', 'Unknown')}")
+        return recipe_data
+        
+    except Exception as e:
+        logger.error(f"Error parsing TikTok recipe: {e}")
+        return None
+
+def parse_recipe_from_jsonld(url: str) -> Optional[Dict[str, Any]]:
+    """Parse regular recipe from URL using web scraping."""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -336,6 +484,19 @@ def extract_recipe_data(url: str) -> Optional[Dict[str, Any]]:
             return json_ld_data
         
         return None
+        
+    except Exception as e:
+        logger.error(f"Error extracting recipe content from {url}: {e}")
+        return None
+
+async def extract_recipe_data(url: str) -> Optional[Dict[str, Any]]:
+    """Extract recipe content from a web URL."""
+    try:
+        # Route to appropriate parser based on URL type
+        if is_tiktok_url(url):
+            return await parse_tiktok_recipe(url)
+        else:
+            return parse_recipe_from_jsonld(url)
         
     except Exception as e:
         logger.error(f"Error extracting recipe content from {url}: {e}")
