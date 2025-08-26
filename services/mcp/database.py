@@ -90,11 +90,32 @@ class VectorStore:
             logger.error(f"Error searching recipes: {e}")
             return []
     
+    def _convert_to_qdrant_id(self, mongo_id: str) -> int:
+        """Convert MongoDB ObjectId string to numeric ID suitable for Qdrant."""
+        # Initialize a hash value
+        hash_val = 0
+        
+        # Iterate over each character in the MongoDB ObjectId
+        for char in mongo_id:
+            char_code = ord(char)  # Get ASCII code of the character
+            
+            # Apply a basic hash function: 31 * hash + char
+            # This is a common hash pattern used in languages like Java
+            hash_val = ((hash_val << 5) - hash_val) + char_code
+            
+            # Force the hash into 32-bit signed integer range (Python equivalent of JS)
+            hash_val = hash_val & 0xFFFFFFFF
+        
+        # Ensure the result is a positive integer (Qdrant doesn't allow negative IDs)
+        # Also ensure it's within a reasonable range for Qdrant
+        return abs(hash_val) % (2**31)  # Keep within 31-bit positive range
+
     def add_recipe(self, recipe_id: str, recipe_vector: List[float], recipe_data: Dict[str, Any]) -> bool:
         """Add a recipe to the vector store."""
         try:
+            recipe_data["mongo_id"] = recipe_id
             point = PointStruct(
-                id=recipe_id,
+                id=self._convert_to_qdrant_id(recipe_id),
                 vector=recipe_vector,
                 payload=recipe_data
             )
