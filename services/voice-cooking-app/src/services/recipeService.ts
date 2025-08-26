@@ -4,27 +4,12 @@ export interface RecipeExtractionRequest {
 
 export interface RecipeExtractionResponse {
   success: boolean
-  data?: {
-    id?: string
-    title?: string
-    description?: string
-    ingredients?: string[]
-    instructions?: string[]
-    prepTime?: string
-    cookTime?: string
-    totalTime?: string
-    servings?: string
-    difficulty?: string
-    cuisine?: string
-    tags?: string[]
-    image?: string
-  }
   recipe_id?: string
   title?: string
   link?: string
   summary?: string
   ingredients?: string[]
-  instructions?: string[]
+  instruction_details?: string[]
   cuisine?: string
   category?: string
   difficulty_level?: number

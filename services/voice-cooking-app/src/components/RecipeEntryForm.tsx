@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 interface RecipeEntryFormProps {
   onSuccess: () => void
 }
@@ -23,7 +25,7 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch('http://localhost:8000/extract-and-store-recipe', {
+      const response = await fetch(`${BASE_URL}/extract-and-store-recipe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -37,9 +39,9 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
 
       const data = await response.json()
 
-      if (data.success && data.recipe) {
+      if (data.success && data.recipe_id) {
         // Navigate to the recipe detail page
-        navigate(`/realtime/${data.recipe.id}`)
+        navigate(`/realtime/${data.recipe_id}`)
         onSuccess()
       } else {
         throw new Error(data.error || 'Failed to extract recipe')

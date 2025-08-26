@@ -99,9 +99,9 @@ const RealtimeRecipeDisplay: React.FC<RealtimeRecipeDisplayProps> = ({ recipe })
         {/* Instructions Section */}
         <div>
           <h2 className="text-lg font-medium text-gray-900 mb-4">Instructions</h2>
-          {recipe.instructions && recipe.instructions.length > 0 ? (
+          {recipe.instruction_details && recipe.instruction_details.length > 0 ? (
             <ol className="space-y-4">
-              {recipe.instructions.map((instruction, index) => (
+              {recipe.instruction_details.map((instruction, index) => (
                 <li key={index} className="flex">
                   <span className="flex-shrink-0 w-6 h-6 bg-gray-900 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">
                     {index + 1}

@@ -4,6 +4,8 @@ import { RecipeExtractionResponse } from '../services/recipeService'
 import RealtimeCookMode from '../components/RealtimeCookMode'
 import RealtimeRecipeDisplay from '../components/RealtimeRecipeDisplay'
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 const RealtimeRecipeDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -20,7 +22,7 @@ const RealtimeRecipeDetailPage: React.FC = () => {
         setLoading(true)
         setError(null)
         
-        const response = await fetch(`http://localhost:8000/recipe/${id}`)
+        const response = await fetch(`${BASE_URL}/recipe/${id}`)
         
         if (!response.ok) {
           throw new Error(`Failed to fetch recipe: ${response.status}`)

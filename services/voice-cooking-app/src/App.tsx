@@ -35,7 +35,7 @@ const AppRoutes = (): JSX.Element => {
           } 
         />
         <Route 
-          path="/realtime/:recipeId" 
+          path="/realtime/:id" 
           element={
             <ProtectedRoute>
               <RealtimeRecipeDetailPage />
