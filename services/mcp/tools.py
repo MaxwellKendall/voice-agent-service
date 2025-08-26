@@ -455,6 +455,7 @@ URL: {recipe_data.get('link', 'No URL')}
             
             # Merge with original recipe data
             enriched_data = recipe_data.copy()
+            enriched_data["link"] = recipe_data.get("link", "")
             enriched_data.update(enriched_info)
             
             logger.info(f"Successfully enriched recipe with AI: {enriched_data.get('title', 'Unknown')}")
