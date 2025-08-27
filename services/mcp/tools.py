@@ -498,52 +498,31 @@ def extract_pinterest_visit_link(url: str) -> Optional[str]:
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Look for the "visit site" link - Pinterest has various selectors for this
-        visit_link = None
+        # TODO: Heuristic 1: find the anchor tag with the text "Visit Site"
+        # For some reason this donest work with https://www.pinterest.com/pin/214343263513321653/
+        for a in soup.find_all("a"):
+            # Get all text (from any child: span, div, text node, etc.)
+                data = a.get_text(strip=True).lower()
+                if data == 'Visit Site':
+                    link = a.get('href', None)
         
-        # Try multiple selectors that Pinterest might use
-        selectors = [
-            'a[href*="visit"]',  # Links containing "visit"
-            'a[data-test-id="visit-site"]',  # Pinterest's test ID
-            'a[aria-label*="visit"]',  # Aria labels containing "visit"
-            'a[href*="external"]',  # External links
-            'a[target="_blank"]',  # Links that open in new tab
-        ]
+        # Heuristic 2: Look for link in the JSON-LD data
+        scripts = soup.find_all('script', type='application/ld+json')
+        link = None
+        for script in scripts:
+            try:
+                data = json.loads(script.string)
+                if isinstance(data, dict) and data.get('@type') == 'SocialMediaPosting':
+                    webpage = data.get('sharedContent', {})
+                    if webpage.get('@type') == 'WebPage':
+                        link = webpage.get('url', None)
+                if isinstance(data, dict) and data.get('@type') == 'Recipe':
+                    # the pintrest url actually has the JSON-LD data
+                    link = url
+            except json.JSONDecodeError:
+                continue
         
-        for selector in selectors:
-            links = soup.select(selector)
-            for link in links:
-                href = link.get('href')
-                if href and not href.startswith('#'):
-                    # Skip internal Pinterest links
-                    if 'pinterest.com' not in href and not href.startswith('/'):
-                        visit_link = href
-                        break
-            if visit_link:
-                break
-        
-        # If no specific "visit" link found, look for any external link
-        if not visit_link:
-            external_links = soup.find_all('a', href=True)
-            for link in external_links:
-                href = link.get('href')
-                if href and not href.startswith('#') and not href.startswith('/'):
-                    if 'pinterest.com' not in href:
-                        visit_link = href
-                        break
-        
-        if visit_link:
-            # Ensure it's a complete URL
-            if visit_link.startswith('//'):
-                visit_link = 'https:' + visit_link
-            elif visit_link.startswith('/'):
-                visit_link = None  # Skip relative links
-                
-            logger.info(f"Found Pinterest visit link: {visit_link}")
-            return visit_link
-        else:
-            logger.warning(f"No visit link found on Pinterest page: {url}")
-            return None
+        return link
             
     except Exception as e:
         logger.error(f"Error extracting Pinterest visit link: {e}")
@@ -632,6 +611,10 @@ def extract_json_ld_recipe(soup: BeautifulSoup) -> Optional[Dict[str, Any]]:
                             return format_recipe_from_json_ld(item)
                 elif isinstance(data, dict) and data.get('@type') == 'Recipe':
                     return format_recipe_from_json_ld(data)
+                elif isinstance(data, dict) and data.get('@graph'):
+                    for item in data.get('@graph', []):
+                        if isinstance(item, dict) and item.get('@type') == 'Recipe':
+                            return format_recipe_from_json_ld(item)
                     
             except (json.JSONDecodeError, AttributeError) as e:
                 logger.warning(f"Error parsing JSON-LD script: {e}")
