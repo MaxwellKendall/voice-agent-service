@@ -34,8 +34,15 @@ const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | nu
   const [ephemeralKey, setEphemeralKey] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [micVolume, setMicVolume] = useState(0)
+  const [speakerVolume, setSpeakerVolume] = useState(0)
   
   const sessionRef = useRef<RealtimeSession | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
+  const speakingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Generate ephemeral API key
   const generateEphemeralKey = async () => {
@@ -64,6 +71,77 @@ const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | nu
       setError(`Failed to generate ephemeral key: ${errorMessage}`)
       throw err
     }
+  }
+
+  // Initialize audio context and microphone monitoring
+  const initializeAudioMonitoring = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      }
+      
+      const audioContext = audioContextRef.current
+      analyserRef.current = audioContext.createAnalyser()
+      analyserRef.current.fftSize = 256
+      
+      microphoneRef.current = audioContext.createMediaStreamSource(stream)
+      microphoneRef.current.connect(analyserRef.current)
+      
+      // Start monitoring microphone levels
+      monitorMicrophoneLevels()
+      
+    } catch (err) {
+      console.error('Failed to initialize audio monitoring:', err)
+      setError('Microphone access denied. Please allow microphone access to use voice assistant.')
+    }
+  }
+
+  // Monitor microphone levels in real-time
+  const monitorMicrophoneLevels = () => {
+    if (!analyserRef.current) return
+    
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+    
+    const updateVolume = () => {
+      analyserRef.current!.getByteFrequencyData(dataArray)
+      
+      // Calculate average volume
+      const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+      const normalizedVolume = (average / 255) * 100
+      
+      setMicVolume(normalizedVolume)
+      animationFrameRef.current = requestAnimationFrame(updateVolume)
+    }
+    
+    updateVolume()
+  }
+
+  // Cleanup audio monitoring
+  const cleanupAudioMonitoring = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+    
+    if (microphoneRef.current) {
+      microphoneRef.current.disconnect()
+      microphoneRef.current = null
+    }
+    
+    if (analyserRef.current) {
+      analyserRef.current.disconnect()
+      analyserRef.current = null
+    }
+    
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+    }
+    
+    setMicVolume(0)
+    setSpeakerVolume(0)
   }
 
   // Initialize and connect to Realtime session
@@ -106,6 +184,9 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
       sessionRef.current = session
       setIsConnecting(false)
 
+      // Initialize audio monitoring after successful connection
+      await initializeAudioMonitoring()
+
       console.log('Session connected successfully')
 
     } catch (err) {
@@ -117,14 +198,26 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
   // Disconnect from Realtime session
   const disconnectFromRealtime = async () => {
     try {
+      // Clear speaking interval
+      if (speakingIntervalRef.current) {
+        clearInterval(speakingIntervalRef.current)
+        speakingIntervalRef.current = null
+      }
+      
       if (sessionRef.current) {
-        await sessionRef.current.disconnect()
+        // Note: The RealtimeSession doesn't have a disconnect method in the current API
+        // The session will be cleaned up automatically
+        console.log('Disconnecting from Realtime session')
+        await sessionRef.current.close();
         sessionRef.current = null
       }
       setIsCookModeActive(false)
       setIsListening(false)
       setIsSpeaking(false)
       setError(null)
+      
+      // Cleanup audio monitoring
+      cleanupAudioMonitoring()
     } catch (err) {
       console.error('Error disconnecting from Realtime session:', err)
     }
@@ -133,6 +226,7 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      cleanupAudioMonitoring()
       if (sessionRef.current) {
         disconnectFromRealtime()
       }
@@ -227,25 +321,11 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
           : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
       }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <h3 className={`text-lg font-medium ${
-              isCookModeActive ? 'text-green-800' : 'text-gray-900'
-            }`}>
-              {isCookModeActive ? 'Voice cooking assistant active' : 'Voice cooking assistant'}
-            </h3>
-            {isConnecting && (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm text-blue-600">Connecting...</span>
-              </div>
-            )}
-            {isCookModeActive && !isConnecting && (
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-green-600">Ready</span>
-              </div>
-            )}
-          </div>
+          <h3 className={`text-lg font-medium ${
+            isCookModeActive ? 'text-green-800' : 'text-gray-900'
+          }`}>
+            Voice cooking assistant
+          </h3>
           
           <button
             onClick={handleToggleCookMode}
@@ -262,6 +342,82 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
             />
           </button>
         </div>
+        
+        {/* Volume Level Indicator - Dropdown when connected */}
+        {isCookModeActive && !isConnecting && (
+          <div className="mt-4 pt-4 border-t border-green-200">
+            <div className="space-y-4">
+              {/* Microphone Input Level */}
+              <div className="flex flex-col items-center space-y-3">
+                {/* Symmetric center-outward animation */}
+                <div className="flex items-center justify-center h-8 w-20">
+                  <div className="flex items-center h-full space-x-1">
+                    {/* Left bars */}
+                    {[...Array(4)].map((_, i) => {
+                      const index = 3 - i // Reverse order for left side
+                      const threshold = index * 11.1 // 0, 11.1, 22.2, 33.3
+                      const isActive = micVolume > threshold
+                      const maxHeight = 100 - (index * 15) // Gradual height decrease from left
+                      return (
+                        <div
+                          key={`left-${index}`}
+                          className={`w-1 rounded-full transition-all duration-150 ease-out ${
+                            isActive 
+                              ? 'bg-green-500' 
+                              : 'bg-green-200'
+                          }`}
+                          style={{
+                            height: isActive 
+                              ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
+                              : '20%'
+                          }}
+                        />
+                      )
+                    })}
+                    
+                    {/* Center indicator */}
+                    <div 
+                      className={`w-1 rounded-full transition-all duration-150 ease-out mx-1 ${
+                        micVolume > 5 ? 'bg-green-500' : 'bg-green-200'
+                      }`}
+                      style={{
+                        height: micVolume > 5 
+                          ? `${Math.min(100, Math.max(20, (micVolume / 100) * 100))}%`
+                          : '20%'
+                      }}
+                    />
+                    
+                    {/* Right bars */}
+                    {[...Array(4)].map((_, i) => {
+                      const index = i
+                      const threshold = index * 11.1 // 0, 11.1, 22.2, 33.3 (relative to right side)
+                      const isActive = micVolume > threshold
+                      const maxHeight = 100 - (index * 15) // Gradual height decrease from center
+                      return (
+                        <div
+                          key={`right-${index}`}
+                          className={`w-1 rounded-full transition-all duration-150 ease-out ${
+                            isActive 
+                              ? 'bg-green-500' 
+                              : 'bg-green-200'
+                          }`}
+                          style={{
+                            height: isActive 
+                              ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
+                              : '20%'
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-green-600">
+                Voice assistant is listening and ready to help with your recipe
+              </div>
+            </div>
+          </div>
+        )}
         
         {error && (
           <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
