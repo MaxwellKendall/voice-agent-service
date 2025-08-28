@@ -350,99 +350,110 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
         </div>
         
         {/* Volume Level Indicator - Dropdown when connected */}
-        {isCookModeActive && !isConnecting && (
+        {isCookModeActive && (
           <div className="mt-4 pt-4 border-t border-green-200">
             <div className="space-y-4">
-              {/* Microphone Input Level */}
-              <div className="flex flex-col items-center space-y-3">
-                {/* Symmetric center-outward animation */}
-                <div className="flex items-center justify-center h-8 w-20">
-                  <div className="flex items-center h-full space-x-1">
-                    {/* Left bars */}
-                    {[...Array(4)].map((_, i) => {
-                      const index = 3 - i // Reverse order for left side
-                      const threshold = index * 11.1 // 0, 11.1, 22.2, 33.3
-                      const isActive = micVolume > threshold
-                      const maxHeight = 100 - (index * 15) // Gradual height decrease from left
-                      return (
-                        <div
-                          key={`left-${index}`}
-                          className={`w-1 rounded-full transition-all duration-150 ease-out ${
-                            isActive && !isMuted
-                              ? 'bg-green-500' 
-                              : 'bg-green-200'
-                          }`}
-                          style={{
-                            height: isActive && !isMuted
-                              ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
-                              : '20%'
-                          }}
-                        />
-                      )
-                    })}
-                    
-                    {/* Center indicator */}
-                    <div 
-                      className={`w-1 rounded-full transition-all duration-150 ease-out mx-1 ${
-                        micVolume > 5 && !isMuted? 'bg-green-500' : 'bg-green-200'
-                      }`}
-                      style={{
-                        height: micVolume > 5 && !isMuted
-                          ? `${Math.min(100, Math.max(20, (micVolume / 100) * 100))}%`
-                          : '20%'
-                      }}
-                    />
-                    
-                    {/* Right bars */}
-                    {[...Array(4)].map((_, i) => {
-                      const index = i
-                      const threshold = index * 11.1 // 0, 11.1, 22.2, 33.3 (relative to right side)
-                      const isActive = micVolume > threshold
-                      const maxHeight = 100 - (index * 15) // Gradual height decrease from center
-                      return (
-                        <div
-                          key={`right-${index}`}
-                          className={`w-1 rounded-full transition-all duration-150 ease-out ${
-                            isActive && !isMuted
-                              ? 'bg-green-500' 
-                              : 'bg-green-200'
-                          }`}
-                          style={{
-                            height: isActive && !isMuted
-                              ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
-                              : '20%'
-                          }}
-                        />
-                      )
-                    })}
-                  </div>
+              {/* Loading state while connecting */}
+              {isConnecting && (
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500"></div>
                 </div>
-                
-                {/* Mute button */}
-                <button
-                  onClick={() => handleSetMute(!isMuted)}
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
-                    isMuted 
-                      ? 'bg-red-500 hover:bg-red-600 text-white' 
-                      : 'bg-green-500 hover:bg-green-600 text-white'
-                  }`}
-                  title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-                >
-                  {isMuted ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <div className="text-xs text-green-600">
-                Voice assistant is listening and ready to help with your recipe
-              </div>
+              )}
+              
+              {/* Microphone Input Level - only show when not connecting */}
+              {!isConnecting && (
+                <div className="flex flex-col items-center space-y-3">
+                  {/* Symmetric center-outward animation */}
+                  <div className="flex items-center justify-center h-8 w-20">
+                    <div className="flex items-center h-full space-x-1">
+                      {/* Left bars */}
+                      {[...Array(4)].map((_, i) => {
+                        const index = 3 - i // Reverse order for left side
+                        const threshold = index * 11.1 // 0, 11.1, 22.2, 33.3
+                        const isActive = micVolume > threshold
+                        const maxHeight = 100 - (index * 15) // Gradual height decrease from left
+                        return (
+                          <div
+                            key={`left-${index}`}
+                            className={`w-1 rounded-full transition-all duration-150 ease-out ${
+                              isActive && !isMuted
+                                ? 'bg-green-500' 
+                                : 'bg-green-200'
+                            }`}
+                            style={{
+                              height: isActive && !isMuted
+                                ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
+                                : '20%'
+                            }}
+                          />
+                        )
+                      })}
+                      
+                      {/* Center indicator */}
+                      <div 
+                        className={`w-1 rounded-full transition-all duration-150 ease-out mx-1 ${
+                          micVolume > 5 && !isMuted? 'bg-green-500' : 'bg-green-200'
+                        }`}
+                        style={{
+                          height: micVolume > 5 && !isMuted
+                            ? `${Math.min(100, Math.max(20, (micVolume / 100) * 100))}%`
+                            : '20%'
+                        }}
+                      />
+                      
+                      {/* Right bars */}
+                      {[...Array(4)].map((_, i) => {
+                        const index = i
+                        const threshold = index * 11.1 // 0, 11.1, 22.2, 33.3 (relative to right side)
+                        const isActive = micVolume > threshold
+                        const maxHeight = 100 - (index * 15) // Gradual height decrease from center
+                        return (
+                          <div
+                            key={`right-${index}`}
+                            className={`w-1 rounded-full transition-all duration-150 ease-out ${
+                              isActive && !isMuted
+                                ? 'bg-green-500' 
+                                : 'bg-green-200'
+                            }`}
+                            style={{
+                              height: isActive && !isMuted
+                                ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
+                                : '20%'
+                            }}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Mute button */}
+                  <button
+                    onClick={() => handleSetMute(!isMuted)}
+                    className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                      isMuted 
+                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                    title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                  >
+                    {isMuted ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              )}
+              {!isConnecting && (
+                <div className="text-xs text-green-600">
+                  Voice assistant is listening and ready to help with your recipe
+                </div>
+              )}
             </div>
           </div>
         )}
