@@ -4,7 +4,6 @@ import { AuthProvider } from './contexts/AuthContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import RecipeDetailPage from './pages/RecipeDetailPage'
 import RealtimeRecipeDetailPage from './pages/RealtimeRecipeDetailPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -30,7 +29,7 @@ const AppRoutes = (): JSX.Element => {
           path="/dashboard/:recipeId" 
           element={
             <ProtectedRoute>
-              <RecipeDetailPage />
+              <DashboardPage />
             </ProtectedRoute>
           } 
         />

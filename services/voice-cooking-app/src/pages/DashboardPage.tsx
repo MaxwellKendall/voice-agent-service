@@ -1,20 +1,62 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import RecipeEntryForm from '../components/RecipeEntryForm'
+import RecipeDisplay from '../components/RecipeDisplay'
+import CookMode from '../components/CookMode'
+import RealtimeCookMode from '../components/RealtimeCookMode'
+import { getRecipeById, RecipeByIdResponse } from '../services/recipeService'
 
 const DashboardPage: React.FC = () => {
+  const { recipeId } = useParams<{ recipeId: string }>()
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const [showRecipeForm, setShowRecipeForm] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Recipe state
+  const [recipe, setRecipe] = useState<RecipeByIdResponse['recipe'] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isCookModeActive, setIsCookModeActive] = useState(false)
+  const [isRealtimeModeActive, setIsRealtimeModeActive] = useState(false)
 
   useEffect(() => {
     if (!user) {
       navigate('/')
     }
   }, [user, navigate])
+
+  // Fetch recipe when recipeId changes
+  useEffect(() => {
+    const fetchRecipe = async () => {
+      if (!recipeId) {
+        setRecipe(null)
+        setError(null)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await getRecipeById(recipeId)
+        
+        if (response.success && response.recipe) {
+          setRecipe(response.recipe)
+        } else {
+          setError(response.error || 'Failed to fetch recipe')
+        }
+      } catch (err) {
+        setError('An unexpected error occurred')
+        console.error('Error fetching recipe:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRecipe()
+  }, [recipeId])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -29,6 +71,80 @@ const DashboardPage: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  const handleStartCooking = () => {
+    setIsCookModeActive(true)
+  }
+
+  const handleExitCookMode = () => {
+    setIsCookModeActive(false)
+  }
+
+  const handleStartRealtimeCooking = () => {
+    setIsRealtimeModeActive(true)
+  }
+
+  const handleExitRealtimeCookMode = () => {
+    setIsRealtimeModeActive(false)
+  }
+
+  const handleRecipeSuccess = () => {
+    // Recipe form submission was successful, recipe will be fetched via useEffect
+  }
+
+  const handleBackToDashboard = () => {
+    navigate('/dashboard')
+  }
+
+  // Helper function to format time values
+  const formatTime = (timeValue: any): string | undefined => {
+    if (!timeValue) return undefined
+    
+    if (typeof timeValue === 'string') {
+      if (timeValue.toLowerCase().includes('minutes')) {
+        if (timeValue === '0 minutes') {
+          return '--'
+        }
+        return timeValue
+      }
+      if (!isNaN(Number(timeValue))) {
+        const numValue = Number(timeValue)
+        return numValue === 0 ? '--' : `${timeValue} minutes`
+      }
+      return timeValue
+    }
+    
+    if (typeof timeValue === 'number') {
+      return timeValue === 0 ? '--' : `${timeValue} minutes`
+    }
+    
+    return String(timeValue)
+  }
+
+  // Transform the recipe data to match the RecipeDisplay component's expected format
+  const transformedRecipe = {
+    success: true,
+    data: {
+      success: true,
+      id: recipe?._id,
+      title: recipe?.title,
+      description: recipe?.description,
+      ingredients: recipe?.ingredients,
+      instructions: recipe?.instruction_details,
+      prepTime: formatTime(recipe?.prepTime || recipe?.prep_time),
+      cookTime: formatTime(recipe?.cookTime || recipe?.cook_time),
+      totalTime: formatTime(recipe?.totalTime),
+      servings: recipe?.servings,
+      difficulty: recipe?.difficulty,
+      cuisine: recipe?.cuisine,
+      tags: recipe?.tags,
+      image: recipe?.image,
+      link: recipe?.link,
+      summary: recipe?.summary,
+      category: recipe?.category,
+      difficulty_level: recipe?.difficulty_level
+    }
+  }
 
   if (!user) {
     return null
@@ -100,50 +216,80 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Recipe Entry Form - Positioned right under header */}
+      <div className="bg-gray-50 border-b border-gray-200 px-6 py-6">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Add New Recipe</h2>
+          <RecipeEntryForm onSuccess={handleRecipeSuccess} />
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {showRecipeForm ? (
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {loading ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading recipe...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+            <div className="text-red-500 text-6xl mb-4">😕</div>
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">Recipe Not Found</h1>
+            <p className="text-gray-600 mb-6">
+              {error || 'The recipe you\'re looking for doesn\'t exist or has been removed.'}
+            </p>
+            <button
+              onClick={handleBackToDashboard}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        ) : recipe ? (
           <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-medium text-gray-900">Add New Recipe</h2>
-              <button
-                onClick={() => setShowRecipeForm(false)}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <RecipeEntryForm onSuccess={() => setShowRecipeForm(false)} />
+            {isCookModeActive ? (
+              <CookMode
+                recipe={transformedRecipe.data}
+                onExit={handleExitCookMode}
+              />
+            ) : isRealtimeModeActive ? (
+              <RealtimeCookMode
+                recipe={transformedRecipe.data}
+                onExit={handleExitRealtimeCookMode}
+              />
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <RecipeDisplay
+                  recipe={transformedRecipe.data}
+                  onStartCooking={handleStartCooking}
+                  onStartRealtimeCooking={handleStartRealtimeCooking}
+                  onBack={handleBackToDashboard}
+                />
+              </div>
+            )}
           </div>
         ) : (
-          <div className="text-center">
-            {/* Welcome Section */}
-            <div className="max-w-2xl mx-auto mb-12">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-medium text-gray-900 mb-3">Welcome to Your Recipe Collection</h2>
-                <p className="text-gray-600 mb-6">
-                  Add recipes from URLs and cook them with hands-free voice assistance. 
-                  Your personal cooking assistant is ready to help you in the kitchen.
-                </p>
-                <button
-                  onClick={() => setShowRecipeForm(true)}
-                  className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
-                >
-                  Add Your First Recipe
-                </button>
+          // Welcome content when no recipe is selected
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
               </div>
+              <h2 className="text-2xl font-medium text-gray-900 mb-3">Welcome to Your Recipe Collection</h2>
+              <p className="text-gray-600 mb-6">
+                Add recipes from URLs and cook them with hands-free voice assistance. 
+                Your personal cooking assistant is ready to help you in the kitchen.
+              </p>
+              <p className="text-sm text-gray-500">
+                Use the form above to add your first recipe!
+              </p>
             </div>
 
             {/* Features Grid */}
-            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="grid md:grid-cols-3 gap-6 mt-12">
+              <div className="bg-gray-50 rounded-lg p-6">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -155,7 +301,7 @@ const DashboardPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-gray-50 rounded-lg p-6">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -167,7 +313,7 @@ const DashboardPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-gray-50 rounded-lg p-6">
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -325,7 +325,7 @@
         "testStrategy": "Verify repository setup by running lint, type-check, and test scripts in CI. Confirm code style enforcement and successful pipeline execution.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -338,21 +338,85 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
         "id": 3,
         "title": "Implement TikTok oEmbed Fetcher",
         "description": "Create a service to fetch TikTok post metadata using the official oEmbed endpoint.",
-        "details": "Use Axios 1.x or node-fetch 3.x to call TikTok's oEmbed endpoint (https://www.tiktok.com/oembed?url=...). Extract author, thumbnail, and description. Handle errors and invalid URLs gracefully. Do not fetch video/audio content.",
-        "testStrategy": "Mock oEmbed responses in unit tests. Test with valid and invalid TikTok URLs. Ensure compliance by verifying no video/audio is fetched.",
-        "priority": "high",
+        "status": "done",
         "dependencies": [
           2
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Use Axios 1.x or node-fetch 3.x to call TikTok's oEmbed endpoint (https://www.tiktok.com/oembed?url=...). Extract author, thumbnail, and description. Handle errors and invalid URLs gracefully. Do not fetch video/audio content.",
+        "testStrategy": "Mock oEmbed responses in unit tests. Test with valid and invalid TikTok URLs. Ensure compliance by verifying no video/audio is fetched.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create tiktokService.ts module",
+            "description": "Implemented comprehensive TikTok oEmbed functionality in a dedicated service module",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement fetchTikTokMetadata function",
+            "description": "Created main function to fetch post metadata from TikTok's oEmbed endpoint",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement URL validation and parsing utilities",
+            "description": "Created isValidTikTokUrl(), extractTikTokUsername(), and extractTikTokVideoId() utility functions",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement error handling",
+            "description": "Added proper error handling for invalid URLs and network issues",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Create test function",
+            "description": "Implemented testTikTokOEmbed() function for validation",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Add User-Agent header",
+            "description": "Implemented proper User-Agent header for identification when making requests",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Document integration points",
+            "description": "Document how this service can be integrated with NLP parser (Task 4) and unified import API (Task 8)",
+            "status": "completed",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 4,
@@ -364,7 +428,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -377,7 +441,7 @@
         "dependencies": [
           2
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -390,7 +454,7 @@
         "dependencies": [
           5
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -476,7 +540,7 @@
     ],
     "metadata": {
       "created": "2025-08-24T01:58:56.125Z",
-      "updated": "2025-08-24T01:59:25.568Z",
+      "updated": "2025-08-26T11:25:47.802Z",
       "description": "Tasks for feature-social-import context"
     }
   }
