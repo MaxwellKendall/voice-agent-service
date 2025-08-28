@@ -3,8 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import RecipeEntryForm from '../components/RecipeEntryForm'
 import RecipeDisplay from '../components/RecipeDisplay'
-import CookMode from '../components/CookMode'
-import RealtimeCookMode from '../components/RealtimeCookMode'
 import { getRecipeById, RecipeByIdResponse } from '../services/recipeService'
 
 const DashboardPage: React.FC = () => {
@@ -18,8 +16,6 @@ const DashboardPage: React.FC = () => {
   const [recipe, setRecipe] = useState<RecipeByIdResponse['recipe'] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isCookModeActive, setIsCookModeActive] = useState(false)
-  const [isRealtimeModeActive, setIsRealtimeModeActive] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -71,22 +67,6 @@ const DashboardPage: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
-
-  const handleStartCooking = () => {
-    setIsCookModeActive(true)
-  }
-
-  const handleExitCookMode = () => {
-    setIsCookModeActive(false)
-  }
-
-  const handleStartRealtimeCooking = () => {
-    setIsRealtimeModeActive(true)
-  }
-
-  const handleExitRealtimeCookMode = () => {
-    setIsRealtimeModeActive(false)
-  }
 
   const handleRecipeSuccess = () => {
     // Recipe form submission was successful, recipe will be fetched via useEffect
@@ -246,27 +226,11 @@ const DashboardPage: React.FC = () => {
             </button>
           </div>
         ) : recipe ? (
-          <div>
-            {isCookModeActive ? (
-              <CookMode
-                recipe={transformedRecipe.data}
-                onExit={handleExitCookMode}
-              />
-            ) : isRealtimeModeActive ? (
-              <RealtimeCookMode
-                recipe={transformedRecipe.data}
-                onExit={handleExitRealtimeCookMode}
-              />
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <RecipeDisplay
-                  recipe={transformedRecipe.data}
-                  onStartCooking={handleStartCooking}
-                  onStartRealtimeCooking={handleStartRealtimeCooking}
-                  onBack={handleBackToDashboard}
-                />
-              </div>
-            )}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <RecipeDisplay
+              recipe={transformedRecipe.data}
+              onBack={handleBackToDashboard}
+            />
           </div>
         ) : (
           // Welcome content when no recipe is selected
@@ -274,7 +238,7 @@ const DashboardPage: React.FC = () => {
             <div className="text-center">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0 0C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
               <h2 className="text-2xl font-medium text-gray-900 mb-3">Welcome to Your Recipe Collection</h2>
@@ -292,7 +256,7 @@ const DashboardPage: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-6">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Voice Cooking Assistant</h3>
@@ -319,9 +283,9 @@ const DashboardPage: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Step-by-Step Guidance</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Real-time AI Guidance</h3>
                 <p className="text-sm text-gray-600">
-                  Follow recipes with confidence using our intelligent cooking assistant.
+                  Follow recipes with confidence using our intelligent real-time cooking assistant.
                 </p>
               </div>
             </div>

@@ -1,10 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { RealtimeAgent, RealtimeSession } from '@openai/agents-realtime'
-import { RecipeExtractionResponse } from '../services/recipeService'
 import { allRealtimeTools } from '../tools/realtimeTools'
 
+interface RecipeData {
+  id?: string
+  title?: string
+  description?: string
+  ingredients?: string[]
+  instructions?: string[]
+  prepTime?: string
+  cookTime?: string
+  totalTime?: string
+  servings?: string
+  difficulty?: string
+  cuisine?: string
+  tags?: string[]
+  image?: string
+  link?: string
+  summary?: string
+  category?: string
+  difficulty_level?: number
+}
+
 interface RealtimeCookModeProps {
-  recipe: RecipeExtractionResponse['data']
+  recipe: RecipeData
   onExit: () => void
 }
 

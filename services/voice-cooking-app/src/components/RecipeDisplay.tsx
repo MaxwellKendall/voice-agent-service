@@ -1,4 +1,6 @@
-import React, { JSX } from 'react'
+import React, { JSX, useState, useEffect, useRef } from 'react'
+import { RealtimeAgent, RealtimeSession } from '@openai/agents-realtime'
+import { allRealtimeTools } from '../tools/realtimeTools'
 
 interface RecipeData {
   id?: string
@@ -22,12 +24,144 @@ interface RecipeData {
 
 interface RecipeDisplayProps {
   recipe: RecipeData
-  onStartCooking: () => void
-  onStartRealtimeCooking: () => void
   onBack: () => void
 }
 
-const RecipeDisplay = ({ recipe, onStartCooking, onStartRealtimeCooking, onBack }: RecipeDisplayProps): JSX.Element | null => {
+const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | null => {
+  const [isCookModeActive, setIsCookModeActive] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [ephemeralKey, setEphemeralKey] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  
+  const sessionRef = useRef<RealtimeSession | null>(null)
+
+  // Generate ephemeral API key
+  const generateEphemeralKey = async () => {
+    try {
+      setError(null)
+      const response = await fetch('http://localhost:8000/generate-ephemeral-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate key: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.success) {
+        setEphemeralKey(data.api_key)
+        return data.api_key
+      } else {
+        throw new Error(data.error || 'Failed to generate ephemeral key')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to generate ephemeral key: ${errorMessage}`)
+      throw err
+    }
+  }
+
+  // Initialize and connect to Realtime session
+  const connectToRealtime = async () => {
+    try {
+      // Generate ephemeral key
+      const apiKey = ephemeralKey ? ephemeralKey : await generateEphemeralKey()
+      
+      // Create the cooking assistant agent
+      const agent = new RealtimeAgent({
+        name: 'Cooking Assistant',
+        instructions: `You are a hands-free cooking assistant. Your role is to guide the user step-by-step through cooking a specific recipe.
+
+Recipe Context:
+- Recipe ID: ${recipe?.id}
+- Recipe Title: ${recipe?.title || 'Unknown'}
+- Recipe Description: ${recipe?.description || 'No description available'}
+
+Your Goals:
+- Help the user understand and prepare the recipe one step at a time
+- Be conversational and adaptive (repeat, clarify, or simplify instructions when asked)
+- Track progress through the recipe, remembering which step the user is on
+- Offer practical cooking tips (timing cues, substitutions, safety reminders) where useful
+- Only reference the current recipe; do not suggest unrelated recipes unless explicitly asked
+
+You have access to tools to search for recipes, get recipe details, and find similar recipes. Use these tools when needed to provide better assistance.
+
+Be concise but helpful. Remember this is a voice conversation, so keep responses natural and conversational.`,
+        tools: allRealtimeTools
+      })
+
+      // Create the Realtime session
+      const session = new RealtimeSession(agent, {
+        model: 'gpt-4o-realtime-preview-2025-06-03',
+      })
+
+      // Connect to the session
+      await session.connect({ apiKey })
+      
+      sessionRef.current = session
+      setIsConnecting(false)
+
+      console.log('Session connected successfully')
+
+    } catch (err) {
+      console.error('Failed to connect to Realtime session:', err)
+      throw err // Re-throw so the optimistic handler can catch it
+    }
+  }
+
+  // Disconnect from Realtime session
+  const disconnectFromRealtime = async () => {
+    try {
+      if (sessionRef.current) {
+        await sessionRef.current.disconnect()
+        sessionRef.current = null
+      }
+      setIsCookModeActive(false)
+      setIsListening(false)
+      setIsSpeaking(false)
+      setError(null)
+    } catch (err) {
+      console.error('Error disconnecting from Realtime session:', err)
+    }
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (sessionRef.current) {
+        disconnectFromRealtime()
+      }
+    }
+  }, [])
+
+  const handleToggleCookMode = async () => {
+    if (isCookModeActive) {
+      await disconnectFromRealtime()
+    } else {
+      // Optimistic UI: immediately show as active
+      setIsCookModeActive(true)
+      setIsConnecting(true)
+      setError(null)
+      
+      // Then attempt connection in background
+      try {
+        await connectToRealtime()
+      } catch (err) {
+        // If connection fails, revert optimistic state
+        setIsCookModeActive(false)
+        setIsConnecting(false)
+        console.error('Failed to connect to Realtime session:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        setError(`Failed to connect: ${errorMessage}`)
+      }
+    }
+  }
+
   if (!recipe) return null
 
   return (
@@ -84,6 +218,56 @@ const RecipeDisplay = ({ recipe, onStartCooking, onStartRealtimeCooking, onBack 
             </svg>
           </button>
         </div>
+      </div>
+
+      {/* Prominent Cook Mode Toggle */}
+      <div className={`px-6 py-6 border-b ${
+        isCookModeActive 
+          ? 'bg-green-50 border-green-200' 
+          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h3 className={`text-lg font-medium ${
+              isCookModeActive ? 'text-green-800' : 'text-gray-900'
+            }`}>
+              {isCookModeActive ? 'Voice cooking assistant active' : 'Voice cooking assistant'}
+            </h3>
+            {isConnecting && (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-blue-600">Connecting...</span>
+              </div>
+            )}
+            {isCookModeActive && !isConnecting && (
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-600">Ready</span>
+              </div>
+            )}
+          </div>
+          
+          <button
+            onClick={handleToggleCookMode}
+            disabled={isConnecting}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200 ${
+              isCookModeActive ? 'bg-green-600' : isConnecting ? 'bg-gray-400' : 'bg-gray-200'
+            }`}
+            aria-label="Toggle cook mode"
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isCookModeActive ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        
+        {error && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
       </div>
 
       <div className="p-6">
@@ -159,24 +343,6 @@ const RecipeDisplay = ({ recipe, onStartCooking, onStartRealtimeCooking, onBack 
                 <p className="text-gray-700 leading-relaxed pt-1">{instruction}</p>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="border-t border-gray-200 pt-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={onStartCooking}
-              className="flex-1 bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
-            >
-              Start Cooking with Voice Assistant
-            </button>
-            <button
-              onClick={onStartRealtimeCooking}
-              className="flex-1 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
-            >
-              Real-time Cooking Mode
-            </button>
           </div>
         </div>
       </div>
