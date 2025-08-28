@@ -27,6 +27,8 @@ interface RealtimeCookModeProps {
   onExit: () => void
 }
 
+const BASE_URL = import.meta.env.VITE_RECIPE_API_URL || 'http://localhost:8000'
+
 const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) => {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -41,7 +43,7 @@ const RealtimeCookMode: React.FC<RealtimeCookModeProps> = ({ recipe, onExit }) =
   const generateEphemeralKey = async () => {
     try {
       setError(null)
-      const response = await fetch('http://localhost:8000/generate-ephemeral-key', {
+      const response = await fetch(`${BASE_URL}/generate-ephemeral-key`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

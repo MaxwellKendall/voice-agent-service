@@ -26,6 +26,7 @@ interface RecipeDisplayProps {
   recipe: RecipeData
   onBack: () => void
 }
+const BASE_URL = import.meta.env.VITE_RECIPE_API_URL || 'http://localhost:8000'
 
 const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | null => {
   const [isCookModeActive, setIsCookModeActive] = useState(false)
@@ -55,7 +56,7 @@ const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | nu
   const generateEphemeralKey = async () => {
     try {
       setError(null)
-      const response = await fetch('http://localhost:8000/generate-ephemeral-key', {
+      const response = await fetch(`${BASE_URL}/generate-ephemeral-key`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
