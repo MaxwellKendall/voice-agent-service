@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCircleArrowUp, faCircleXmark } from '@fortawesome/free-solid-svg-icons'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -40,8 +42,6 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
       const data = await response.json()
 
       if (data.success && data.recipe_id) {
-        // Clear the form
-        setUrl('')
         // Navigate to the dashboard with the recipe ID
         navigate(`/dashboard/${data.recipe_id}`)
         onSuccess()
@@ -56,6 +56,14 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
     }
   }
 
+  const handleClear = () => {
+    setUrl('')
+    setError(null)
+  }
+
+  const canSubmit = url.trim().length > 0 && !isLoading
+  const showClearButton = error && url.trim().length > 0
+
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="relative">
@@ -65,35 +73,42 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
             type="url"
             id="recipe-url"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => {
+              setUrl(e.target.value)
+              // Clear error when user starts typing
+              if (error) setError(null)
+            }}
             placeholder="Paste a recipe URL from any cooking website..."
             className="w-full px-4 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors text-sm"
             disabled={isLoading}
           />
           
-          {/* Submit button with arrow icon */}
+          {/* Submit button or Clear button */}
           <button
-            type="submit"
-            disabled={isLoading || !url.trim()}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-gray-100"
-            aria-label="Extract recipe"
+            type={showClearButton ? "button" : "submit"}
+            onClick={showClearButton ? handleClear : undefined}
+            disabled={!canSubmit && !showClearButton}
+            className={`absolute flex right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${
+              showClearButton 
+                ? 'text-red-600 hover:text-red-700' 
+                : canSubmit 
+                  ? 'text-blue-600 hover:text-blue-700' 
+                  : 'text-gray-300 cursor-not-allowed'
+            }`}
+            aria-label={showClearButton ? "Clear input" : "Extract recipe"}
           >
             {isLoading ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+            ) : showClearButton ? (
+              <FontAwesomeIcon 
+                icon={faCircleXmark} 
+                className="w-5 h-5" 
+              />
             ) : (
-              <svg 
-                className="w-4 h-4" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
-                />
-              </svg>
+              <FontAwesomeIcon 
+                icon={faCircleArrowUp} 
+                className="w-5 h-5" 
+              />
             )}
           </button>
         </div>
