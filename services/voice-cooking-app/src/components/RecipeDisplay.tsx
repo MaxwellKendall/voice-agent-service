@@ -36,13 +36,20 @@ const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | nu
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [micVolume, setMicVolume] = useState(0)
   const [speakerVolume, setSpeakerVolume] = useState(0)
-  
+  const [isMuted, setIsMuted] = useState(false)
   const sessionRef = useRef<RealtimeSession | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const speakingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleSetMute = (payload: boolean) => {
+    if (sessionRef.current) {
+      sessionRef.current.mute(payload);
+    }
+    setIsMuted(payload)
+  }
 
   // Generate ephemeral API key
   const generateEphemeralKey = async () => {
@@ -98,7 +105,7 @@ const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | nu
     }
   }
 
-  // Monitor microphone levels in real-time
+  // Monitor microphone levels
   const monitorMicrophoneLevels = () => {
     if (!analyserRef.current) return
     
@@ -106,7 +113,6 @@ const RecipeDisplay = ({ recipe, onBack }: RecipeDisplayProps): JSX.Element | nu
     
     const updateVolume = () => {
       analyserRef.current!.getByteFrequencyData(dataArray)
-      
       // Calculate average volume
       const average = dataArray.reduce((a, b) => a + b) / dataArray.length
       const normalizedVolume = (average / 255) * 100
@@ -362,12 +368,12 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
                         <div
                           key={`left-${index}`}
                           className={`w-1 rounded-full transition-all duration-150 ease-out ${
-                            isActive 
+                            isActive && !isMuted
                               ? 'bg-green-500' 
                               : 'bg-green-200'
                           }`}
                           style={{
-                            height: isActive 
+                            height: isActive && !isMuted
                               ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
                               : '20%'
                           }}
@@ -378,10 +384,10 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
                     {/* Center indicator */}
                     <div 
                       className={`w-1 rounded-full transition-all duration-150 ease-out mx-1 ${
-                        micVolume > 5 ? 'bg-green-500' : 'bg-green-200'
+                        micVolume > 5 && !isMuted? 'bg-green-500' : 'bg-green-200'
                       }`}
                       style={{
-                        height: micVolume > 5 
+                        height: micVolume > 5 && !isMuted
                           ? `${Math.min(100, Math.max(20, (micVolume / 100) * 100))}%`
                           : '20%'
                       }}
@@ -397,12 +403,12 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
                         <div
                           key={`right-${index}`}
                           className={`w-1 rounded-full transition-all duration-150 ease-out ${
-                            isActive 
+                            isActive && !isMuted
                               ? 'bg-green-500' 
                               : 'bg-green-200'
                           }`}
                           style={{
-                            height: isActive 
+                            height: isActive && !isMuted
                               ? `${Math.min(maxHeight, Math.max(20, (micVolume / 100) * maxHeight))}%`
                               : '20%'
                           }}
@@ -411,6 +417,28 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
                     })}
                   </div>
                 </div>
+                
+                {/* Mute button */}
+                <button
+                  onClick={() => handleSetMute(!isMuted)}
+                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                    isMuted 
+                      ? 'bg-red-500 hover:bg-red-600 text-white' 
+                      : 'bg-green-500 hover:bg-green-600 text-white'
+                  }`}
+                  title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                >
+                  {isMuted ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  )}
+                </button>
               </div>
               <div className="text-xs text-green-600">
                 Voice assistant is listening and ready to help with your recipe
