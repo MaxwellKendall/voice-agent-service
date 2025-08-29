@@ -72,7 +72,7 @@ async def _search_recipes(query: str) -> List[Dict[str, Any]]:
         
         # Search vector store (Qdrant)
         vector_store = get_vector_store()
-        recipes = vector_store.search_recipes(query_vector, limit=5)
+        recipes = vector_store.search_recipes(query_vector, limit=50)
         logger.debug(f"Found {len(recipes)} recipes")
         
         return recipes
