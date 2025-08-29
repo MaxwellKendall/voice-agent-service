@@ -315,91 +315,91 @@ Be concise but helpful. Remember this is a voice conversation, so keep responses
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-4xl mx-auto">
       {/* Recipe Header */}
       <div className="px-6 py-6 border-b border-gray-200">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {recipe.title}
-            </h1>
-            {recipe.description && (
-              <p className="text-gray-600 text-base leading-relaxed mb-4">
-                {recipe.description}
-              </p>
-            )}
-            
-            {/* Recipe Metadata */}
-            <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-              {recipe.prepTime && (
-                <span className="flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Prep: {recipe.prepTime}
-                </span>
-              )}
-              {recipe.cookTime && (
-                <span className="flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Cook: {recipe.cookTime}
-                </span>
-              )}
-              {recipe.servings && (
-                <span className="flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  Serves: {recipe.servings}
-                </span>
-              )}
-            </div>
-          </div>
+        {/* Top Row - Back Button and Save Button */}
+        <div className="flex items-center justify-between mb-4">
+          {/* Back Button - Left Arrow */}
+          <button
+            onClick={onBack}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+            aria-label="Back to dashboard"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
           
-          <div className="flex items-center space-x-2">
-            {/* Save Button */}
-            {user?.id && (
-              <button
-                onClick={handleSaveClick}
-                disabled={isSaveLoading}
-                className={`
-                  flex items-center space-x-2 px-3 py-2 rounded-lg font-medium text-sm
-                  transition-all duration-200
-                  ${isSaveLoading 
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                    : isSaved 
-                      ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                  }
-                `}
-                title={isSaved ? 'Remove from saved recipes' : 'Save recipe'}
-              >
-                {isSaveLoading ? (
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : isSaved ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                )}
-                <span>{isSaved ? 'Saved' : 'Save'}</span>
-              </button>
-            )}
-            
+          {/* Save Button - Icon Only for Mobile */}
+          {user?.id && (
             <button
-              onClick={onBack}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
-              aria-label="Back to dashboard"
+              onClick={handleSaveClick}
+              disabled={isSaveLoading}
+              className={`
+                p-2 rounded-full transition-all duration-200
+                ${isSaveLoading 
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : isSaved 
+                    ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                    : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                }
+              `}
+              title={isSaved ? 'Remove from saved recipes' : 'Save recipe'}
+              aria-label={isSaved ? 'Remove from saved recipes' : 'Save recipe'}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              {isSaveLoading ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : isSaved ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              )}
             </button>
+          )}
+        </div>
+
+        {/* Recipe Content */}
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {recipe.title}
+          </h1>
+          {recipe.description && (
+            <p className="text-gray-600 text-base leading-relaxed mb-4">
+              {recipe.description}
+            </p>
+          )}
+          
+          {/* Recipe Metadata */}
+          <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+            {recipe.prepTime && (
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Prep: {recipe.prepTime}
+              </span>
+            )}
+            {recipe.cookTime && (
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Cook: {recipe.cookTime}
+              </span>
+            )}
+            {recipe.servings && (
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Serves: {recipe.servings}
+              </span>
+            )}
           </div>
         </div>
       </div>
