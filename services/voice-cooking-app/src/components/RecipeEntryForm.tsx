@@ -2,24 +2,37 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCircleArrowUp, faCircleXmark } from '@fortawesome/free-solid-svg-icons'
+import { extractRecipe } from '../services/recipeService'
+import { searchRecipes } from '../services/recipeService'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 interface RecipeEntryFormProps {
   onSuccess: () => void
+  onSearchResults?: (recipes: any[]) => void
 }
 
-const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
-  const [url, setUrl] = useState('')
+const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess, onSearchResults }) => {
+  const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
+  // Helper function to detect if input is a URL
+  const isUrl = (text: string): boolean => {
+    try {
+      new URL(text)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!url.trim()) {
-      setError('Please enter a recipe URL')
+    if (!input.trim()) {
+      setError('Please enter a recipe URL or search query')
       return
     }
 
@@ -27,42 +40,60 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(`${BASE_URL}/extract-and-store-recipe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: url.trim() }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to extract recipe: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success && data.recipe_id) {
-        // Navigate to the dashboard with the recipe ID
-        navigate(`/dashboard/${data.recipe_id}`)
-        onSuccess()
+      if (isUrl(input.trim())) {
+        // Handle URL extraction
+        const response = await extractRecipe(input.trim())
+        
+        if (response.success && response.recipe_id) {
+          // Navigate to the dashboard with the recipe ID
+          navigate(`/dashboard/${response.recipe_id}`)
+          onSuccess()
+        } else {
+          throw new Error(response.error || 'Failed to extract recipe')
+        }
       } else {
-        throw new Error(data.error || 'Failed to extract recipe')
+        // Handle natural language search
+        const searchResponse = await searchRecipes(input.trim())
+        
+        if (searchResponse.success && searchResponse.recipes) {
+          // Transform recipes to match our interface
+          const transformedRecipes = searchResponse.recipes.map(recipe => ({
+            id: recipe.mongo_id,
+            title: recipe.title,
+            image: recipe.image_url,
+            summary: recipe.summary,
+            description: recipe.description,
+            tags: recipe.tags,
+            cuisine: recipe.cuisine,
+            category: recipe.category,
+            prepTime: recipe.prepTime || (recipe.prep_time ? `${recipe.prep_time} minutes` : undefined),
+            cookTime: recipe.cookTime || (recipe.cook_time ? `${recipe.cook_time} minutes` : undefined),
+            servings: recipe.servings,
+            rating: recipe.rating,
+            ratingCount: recipe.rating_count
+          }))
+          
+          // Call the search results callback
+          onSearchResults?.(transformedRecipes)
+        } else {
+          throw new Error(searchResponse.error || 'Failed to search recipes')
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Failed to extract recipe: ${errorMessage}`)
+      setError(`Failed to process request: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleClear = () => {
-    setUrl('')
+    setInput('')
     setError(null)
   }
 
-  const canSubmit = url.trim().length > 0 && !isLoading
-  const showClearButton = error && url.trim().length > 0
+  const canSubmit = input.trim().length > 0 && !isLoading
+  const showClearButton = error && input.trim().length > 0
 
   return (
     <div className="space-y-4">
@@ -70,15 +101,15 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
         {/* URL Input with integrated submit button */}
         <div className="relative">
           <input
-            type="url"
-            id="recipe-url"
-            value={url}
+            type="text"
+            id="recipe-input"
+            value={input}
             onChange={(e) => {
-              setUrl(e.target.value)
+              setInput(e.target.value)
               // Clear error when user starts typing
               if (error) setError(null)
             }}
-            placeholder="Paste a recipe URL from any cooking website..."
+            placeholder="Paste a recipe URL or search for recipes (e.g., 'quick pasta dishes')..."
             className="w-full px-4 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors text-sm"
             disabled={isLoading}
           />
@@ -114,7 +145,7 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess }) => {
         </div>
         
         <p className="text-xs text-gray-500">
-          Supports AllRecipes, Food Network, Epicurious, and many more cooking sites
+          Paste a URL to extract a recipe, or search with natural language like "quick pasta dishes" or "healthy breakfast"
         </p>
       </form>
 
