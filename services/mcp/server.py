@@ -445,6 +445,105 @@ async def extract_and_store_recipe_endpoint(request: Request):
             status_code=500
         )
 
+@api.post("/user/{user_id}/recipe/{recipe_id}")
+async def save_recipe_for_user_endpoint(user_id: str, recipe_id: str):
+    """Save a recipe for a specific user."""
+    logger.debug(f"save_recipe_for_user_endpoint called with user_id: '{user_id}', recipe_id: '{recipe_id}'")
+    try:
+        mongo_store = get_mongodb_store()
+        mongo_store.save_recipe_for_user(user_id, recipe_id)
+        return {"success": True, "message": "Recipe saved successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error in save_recipe_for_user_endpoint: {e}")
+        if e.message == f"Recipe {recipe_id} not found":
+            return JSONResponse(
+                {"success": False, "error": e.message},
+                status_code=404
+            )
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
+@api.get("/user/{user_id}/recipes")
+async def get_user_saved_recipes_endpoint(user_id: str, page: int = 1, limit: int = 20):
+    """Get saved recipes for a specific user with pagination."""
+    logger.debug(f"get_user_saved_recipes_endpoint called with user_id: '{user_id}', page: {page}, limit: {limit}")
+    try:
+        # Validate pagination parameters
+        if page < 1:
+            page = 1
+        if limit < 1 or limit > 100:
+            limit = 20
+        
+        mongo_store = get_mongodb_store()
+        result = mongo_store.get_user_saved_recipes_paginated(user_id, page, limit)
+        
+        return {
+            "success": True,
+            "data": result["recipes"],
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": result["total"],
+                "total_pages": result["total_pages"],
+                "has_next": result["has_next"],
+                "has_prev": result["has_prev"]
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_user_saved_recipes_endpoint: {e}")
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
+@api.get("/user/{user_id}/recipe/{recipe_id}")
+async def get_user_recipe_endpoint(user_id: str, recipe_id: str):
+    """Get a specific recipe for a user (if they have it saved)."""
+    logger.debug(f"get_user_recipe_endpoint called with user_id: '{user_id}', recipe_id: '{recipe_id}'")
+    try:
+        mongo_store = get_mongodb_store()
+        
+        # Get the recipe data
+        recipe = mongo_store.get_recipe(recipe_id)
+        if recipe:
+            return {"success": True, "data": recipe}
+        else:
+            return JSONResponse(
+                {"success": False, "error": "Recipe not found"},
+                status_code=404
+            )
+        
+    except Exception as e:
+        logger.error(f"Error in get_user_recipe_endpoint: {e}")
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
+@api.delete("/user/{user_id}/recipe/{recipe_id}")
+async def remove_saved_recipe_endpoint(user_id: str, recipe_id: str):
+    """Remove a saved recipe for a specific user."""
+    logger.debug(f"remove_saved_recipe_endpoint called with user_id: '{user_id}', recipe_id: '{recipe_id}'")
+    try:
+        mongo_store = get_mongodb_store()
+        success = mongo_store.remove_saved_recipe(user_id, recipe_id)
+        
+        if success:
+            return {"success": True, "message": "Recipe removed from saved recipes"}
+        else:
+            return {"success": False, "error": "Recipe not found in saved recipes"}
+        
+    except Exception as e:
+        logger.error(f"Error in remove_saved_recipe_endpoint: {e}")
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
 """
 MCP Resources
 """
@@ -494,6 +593,44 @@ async def find_similar_recipes_from_url(recipe_url: str) -> List[Dict[str, Any]]
 async def extract_and_store_recipe(url: str) -> Dict[str, Any]:
     """Extract recipe content from a URL, enrich with AI, and store in databases."""
     return await _extract_and_store_recipe(url)
+
+@mcp.tool
+async def save_recipe_for_user(user_id: str, recipe_id: str) -> Dict[str, Any]:
+    """Save a recipe for a specific user."""
+    mongo_store = get_mongodb_store()
+    success = mongo_store.save_recipe_for_user(user_id, recipe_id)
+    
+    if success:
+        return {"success": True, "message": "Recipe saved successfully"}
+    else:
+        return {"success": False, "error": "Recipe already saved for this user"}
+
+@mcp.tool
+async def get_user_saved_recipes(user_id: str) -> Dict[str, Any]:
+    """Get all saved recipes for a specific user."""
+    mongo_store = get_mongodb_store()
+    saved_recipes = mongo_store.get_user_saved_recipes_paginated(user_id)
+    
+    return {"success": True, "data": saved_recipes}
+
+@mcp.tool
+async def remove_saved_recipe(user_id: str, recipe_id: str) -> Dict[str, Any]:
+    """Remove a saved recipe for a specific user."""
+    mongo_store = get_mongodb_store()
+    success = mongo_store.remove_saved_recipe(user_id, recipe_id)
+    
+    if success:
+        return {"success": True, "message": "Recipe removed from saved recipes"}
+    else:
+        return {"success": False, "error": "Recipe not found in saved recipes"}
+
+@mcp.tool
+async def is_recipe_saved_for_user(user_id: str, recipe_id: str) -> Dict[str, Any]:
+    """Check if a recipe is saved for a specific user."""
+    mongo_store = get_mongodb_store()
+    is_saved = mongo_store.is_recipe_saved_for_user(user_id, recipe_id)
+    
+    return {"success": True, "is_saved": is_saved}
 
 # Mount MCP at /mcp
 api.mount("/mcp", mcp.http_app())

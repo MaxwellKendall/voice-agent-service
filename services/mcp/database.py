@@ -200,6 +200,137 @@ class MongoDBStore:
             logger.error(f"Error finding similar recipes: {e}")
             return []
 
+    def save_recipe_for_user(self, user_id: str, recipe_id: str) -> bool:
+        """Save a recipe for a specific user."""
+        try:
+            # Check if recipe exists
+            recipe = self.get_recipe(recipe_id)
+            if not recipe:
+                logger.error(f"Recipe {recipe_id} not found")
+                raise Exception(f"Recipe {recipe_id} not found")
+            
+            # Use a separate collection for user saved recipes
+            user_recipes_collection = self.db.user_saved_recipes
+            
+            # Check if already saved
+            existing = user_recipes_collection.find_one({
+                "user_id": user_id,
+                "recipe_id": recipe_id
+            })
+            
+            if existing:
+                logger.info(f"Recipe {recipe_id} already saved for user {user_id}")
+                return False
+            
+            # Save the recipe for the user
+            user_recipe_doc = {
+                "user_id": user_id,
+                "recipe_id": recipe_id,
+                "saved_at": datetime.utcnow(),
+                "recipe_title": recipe.get("title", "Unknown"),
+                "recipe_image": recipe.get("image_url", ""),
+                "recipe_summary": recipe.get("summary", "")
+            }
+            
+            user_recipes_collection.insert_one(user_recipe_doc)
+            logger.info(f"Saved recipe {recipe_id} for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving recipe for user: {e}")
+            raise Exception(e.message)
+
+    def get_user_saved_recipes_paginated(self, user_id: str, page: int = 1, limit: int = 20) -> Dict[str, Any]:
+        """Get saved recipes for a specific user with pagination."""
+        try:
+            user_recipes_collection = self.db.user_saved_recipes
+            
+            # Calculate skip value for pagination
+            skip = (page - 1) * limit
+            
+            # Get total count of saved recipes for the user
+            total = user_recipes_collection.count_documents({"user_id": user_id})
+            
+            # Get paginated saved recipe IDs for the user
+            saved_recipes = list(user_recipes_collection.find({"user_id": user_id})
+                               .sort("saved_at", -1)  # Sort by saved_at descending
+                               .skip(skip)
+                               .limit(limit))
+            
+            # Fetch the full recipe data for each saved recipe
+            full_recipes = []
+            for saved_recipe in saved_recipes:
+                recipe_id = saved_recipe["recipe_id"]
+                recipe = self.get_recipe(recipe_id)
+                if recipe:
+                    # Add saved_at timestamp from user's saved recipe
+                    recipe["saved_at"] = saved_recipe["saved_at"]
+                    recipe["id"] = recipe_id  # Ensure ID is included
+                    recipe.pop("_id", None)
+                    full_recipes.append(recipe)
+            
+            # Calculate pagination info
+            total_pages = (total + limit - 1) // limit  # Ceiling division
+            has_next = page < total_pages
+            has_prev = page > 1
+            
+            logger.info(f"Retrieved {len(full_recipes)} saved recipes for user {user_id} (page {page}/{total_pages})")
+            
+            return {
+                "recipes": full_recipes,
+                "total": total,
+                "total_pages": total_pages,
+                "has_next": has_next,
+                "has_prev": has_prev
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting user saved recipes with pagination: {e}")
+            return {
+                "recipes": [],
+                "total": 0,
+                "total_pages": 0,
+                "has_next": False,
+                "has_prev": False
+            }
+
+    def remove_saved_recipe(self, user_id: str, recipe_id: str) -> bool:
+        """Remove a saved recipe for a specific user."""
+        try:
+            user_recipes_collection = self.db.user_saved_recipes
+            
+            result = user_recipes_collection.delete_one({
+                "user_id": user_id,
+                "recipe_id": recipe_id
+            })
+            
+            if result.deleted_count > 0:
+                logger.info(f"Removed recipe {recipe_id} from user {user_id}'s saved recipes")
+                return True
+            else:
+                logger.info(f"Recipe {recipe_id} not found in user {user_id}'s saved recipes")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error removing saved recipe: {e}")
+            return False
+
+    def is_recipe_saved_for_user(self, user_id: str, recipe_id: str) -> bool:
+        """Check if a recipe is saved for a specific user."""
+        try:
+            user_recipes_collection = self.db.user_saved_recipes
+            
+            existing = user_recipes_collection.find_one({
+                "user_id": user_id,
+                "recipe_id": recipe_id
+            })
+            
+            return existing is not None
+            
+        except Exception as e:
+            logger.error(f"Error checking if recipe is saved: {e}")
+            return False
+
 # Global instances
 _vector_store: Optional[VectorStore] = None
 _mongodb_store: Optional[MongoDBStore] = None
