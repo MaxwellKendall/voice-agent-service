@@ -4,8 +4,23 @@ import { useAuth } from '../contexts/AuthContext'
 import RecipeEntryForm from '../components/RecipeEntryForm'
 import RecipeDisplay from '../components/RecipeDisplay'
 import RecipeCard from '../components/RecipeCard'
-import { getRecipeById, RecipeByIdResponse } from '../services/recipeService'
-
+import { getRecipeById, RecipeByIdResponse, getUserSavedRecipes, removeSavedRecipe, saveRecipeForUser } from '../services/recipeService'
+export interface Recipe {
+  id?: string
+  _id?: string
+  title: string
+  image?: string
+  summary?: string
+  description?: string
+  tags?: string[]
+  cuisine?: string
+  category?: string
+  prepTime?: string
+  cookTime?: string
+  servings?: string[]
+  rating?: number
+  ratingCount?: number
+} 
 const DashboardPage: React.FC = () => {
   const { recipeId } = useParams<{ recipeId: string }>()
   const { user, signOut } = useAuth()
@@ -21,6 +36,10 @@ const DashboardPage: React.FC = () => {
   // Search state
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [hasSearchResults, setHasSearchResults] = useState(false)
+  
+  // Saved recipes state
+  const [savedRecipes, setSavedRecipes] = useState<any[]>([])
+  const [savedRecipesLoading, setSavedRecipesLoading] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -34,12 +53,19 @@ const DashboardPage: React.FC = () => {
       if (!recipeId) {
         setRecipe(null)
         setError(null)
+        // Clear search results when no recipeId (back to dashboard)
+        setHasSearchResults(false)
+        setSearchResults([])
         return
       }
 
       try {
         setLoading(true)
         setError(null)
+        
+        // Clear search results when viewing a specific recipe
+        setHasSearchResults(false)
+        setSearchResults([])
         
         const response = await getRecipeById(recipeId)
         
@@ -58,6 +84,31 @@ const DashboardPage: React.FC = () => {
 
     fetchRecipe()
   }, [recipeId])
+
+  // Fetch saved recipes when no recipeId and no search results
+  useEffect(() => {
+    const fetchSavedRecipes = async () => {
+      if (!user?.id || recipeId || hasSearchResults) return
+
+      try {
+        setSavedRecipesLoading(true)
+        const response = await getUserSavedRecipes(user.id)
+        
+        if (response.success && response.data) {
+          setSavedRecipes(response.data.map(r => ({ ...r, image: r.image_url })))
+        } else {
+          setSavedRecipes([])
+        }
+      } catch (err) {
+        console.error('Error fetching saved recipes:', err)
+        setSavedRecipes([])
+      } finally {
+        setSavedRecipesLoading(false)
+      }
+    }
+
+    fetchSavedRecipes()
+  }, [user?.id, recipeId, hasSearchResults])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -85,6 +136,24 @@ const DashboardPage: React.FC = () => {
 
   const handleBackToDashboard = () => {
     navigate('/dashboard')
+  }
+
+  const handleSaveClick = async (e: React.MouseEvent, isSaved = false, recipe: Recipe) => {
+    e.stopPropagation()
+    if (!user || !recipe.id || loading) return
+
+    setLoading(true)
+    try {
+      const shouldRemove = isSaved;
+      const response = isSaved ? await removeSavedRecipe(user.id, recipe.id) : await saveRecipeForUser(user.id, recipe.id)
+      if (response.success) {
+        setSavedRecipes(shouldRemove ? savedRecipes.filter(r => r.id !== recipe.id) : [...savedRecipes, recipe])
+      }
+    } catch (error) {
+      console.error('Error toggling save status:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Render main content based on current state
@@ -130,7 +199,7 @@ const DashboardPage: React.FC = () => {
       }
     }
 
-    // If no recipeId, show search results or welcome content
+    // If no recipeId, show search results or saved recipes
     if (hasSearchResults && searchResults.length > 0) {
       return (
         <div>
@@ -151,9 +220,12 @@ const DashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {searchResults.map((recipe, index) => (
               <RecipeCard
-                key={recipe.id || index}
+                key={recipe.id || recipe._id || index}
                 recipe={recipe}
-                onClick={() => navigate(`/dashboard/${recipe.id}`)}
+                onClick={() => navigate(`/dashboard/${recipe.id || recipe._id}`)}
+                userId={user?.id}
+                isSaved={savedRecipes.some(r => r.id === recipe.id)}
+                handleSaveClick={handleSaveClick}
               />
             ))}
           </div>
@@ -161,65 +233,104 @@ const DashboardPage: React.FC = () => {
       )
     }
 
-    // Default: show welcome content
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0 0C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
+    // Show saved recipes if no search results and no recipeId
+    if (!recipeId && !hasSearchResults) {
+      if (savedRecipesLoading) {
+        return (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading your saved recipes...</p>
           </div>
-          <h2 className="text-2xl font-medium text-gray-900 mb-3">Welcome to Your Recipe Collection</h2>
-          <p className="text-gray-600 mb-6">
-            Add recipes from URLs and cook them with hands-free voice assistance. 
-            Your personal cooking assistant is ready to help you in the kitchen.
-          </p>
-          <p className="text-sm text-gray-500">
-            Use the form above to add your first recipe!
-          </p>
+        )
+      }
+
+      if (savedRecipes.length > 0) {
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Your Saved Recipes ({savedRecipes.length})
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {savedRecipes.map((recipe, index) => (
+                <RecipeCard
+                  key={recipe.id || index}
+                  recipe={recipe}
+                  onClick={() => navigate(`/dashboard/${recipe.id}`)}
+                  userId={user?.id}
+                  isSaved={true}
+                  handleSaveClick={handleSaveClick}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      }
+
+      // No saved recipes - show welcome content
+      return (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0 0C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-medium text-gray-900 mb-3">Welcome to Your Recipe Collection</h2>
+            <p className="text-gray-600 mb-6">
+              Add recipes from URLs or search for recipes to build your personal collection. 
+              Your saved recipes will appear here for easy access.
+            </p>
+            <p className="text-sm text-gray-500">
+              Use the form above to add your first recipe!
+            </p>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid md:grid-cols-3 gap-6 mt-12">
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Voice Cooking Assistant</h3>
+              <p className="text-sm text-gray-600">
+                Get hands-free guidance through recipes with our AI-powered voice assistant.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Save Your Favorites</h3>
+              <p className="text-sm text-gray-600">
+                Save recipes you love to your personal collection for quick access.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Smart Search</h3>
+              <p className="text-sm text-gray-600">
+                Search for recipes using natural language or paste recipe URLs.
+              </p>
+            </div>
+          </div>
         </div>
+      )
+    }
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-6 mt-12">
-          <div className="bg-gray-50 rounded-lg p-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Voice Cooking Assistant</h3>
-            <p className="text-sm text-gray-600">
-              Get hands-free guidance through recipes with our AI-powered voice assistant.
-            </p>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-6">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Smart Recipe Extraction</h3>
-            <p className="text-sm text-gray-600">
-              Automatically extract and organize recipes from any cooking website.
-            </p>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-6">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Real-time AI Guidance</h3>
-            <p className="text-sm text-gray-600">
-              Follow recipes with confidence using our intelligent real-time cooking assistant.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
+    // This should never be reached, but just in case
+    return null
   }
 
   // Helper function to format time values

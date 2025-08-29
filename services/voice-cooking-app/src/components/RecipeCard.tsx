@@ -1,31 +1,27 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { saveRecipeForUser, removeSavedRecipe, isRecipeSavedForUser } from '../services/recipeService'
+import { Recipe } from '../pages/DashboardPage'
+
 
 interface RecipeCardProps {
-  recipe: {
-    id?: string
-    title: string
-    image?: string
-    summary?: string
-    description?: string
-    tags?: string[]
-    cuisine?: string
-    category?: string
-    prepTime?: string
-    cookTime?: string
-    servings?: string[]
-    rating?: number
-    ratingCount?: number
-  }
+  recipe: Recipe
   onClick?: () => void
   className?: string
+  userId?: string
+  isSaved?: boolean
+  handleSaveClick: (e: React.MouseEvent, isSaved: boolean, recipe: Recipe) => void
 }
 
 const RecipeCard: React.FC<RecipeCardProps> = ({
   recipe,
   onClick,
-  className = ""
+  className = "",
+  userId,
+  isSaved,
+  handleSaveClick
 }) => {
-    console.log('helllooo world....', recipe)
+  const [isLoading, setIsLoading] = useState(false)
+
   const handleClick = () => {
     if (onClick) {
       onClick()
@@ -48,7 +44,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   }
 
   const getTags = () => {
-    const tags = []
+    const tags: string[] = []
     if (recipe.cuisine) tags.push(recipe.cuisine)
     if (recipe.category) tags.push(recipe.category)
     if (recipe.tags) tags.push(...recipe.tags)
@@ -95,6 +91,34 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               {recipe.rating.toFixed(1)}
             </span>
           </div>
+        )}
+
+        {/* Save Button */}
+        {userId && (
+          <button
+            onClick={(e) => handleSaveClick(e, !!isSaved, recipe)}
+            disabled={isLoading}
+            className={`
+              absolute top-3 left-3 bg-white bg-opacity-90 rounded-full p-2 
+              transition-all duration-200 hover:bg-opacity-100
+              ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-110'}
+            `}
+          >
+            {isLoading ? (
+              <svg className="w-4 h-4 text-gray-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : isSaved ? (
+              <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            )}
+          </button>
         )}
       </div>
 

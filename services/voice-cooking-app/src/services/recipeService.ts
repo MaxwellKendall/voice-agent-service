@@ -177,7 +177,7 @@ export interface UserSavedRecipesResponse {
     difficulty?: string
     cuisine?: string
     tags?: string[]
-    image?: string
+    image_url?: string
     link?: string
     summary?: string
     category?: string
@@ -194,12 +194,6 @@ export interface UserSavedRecipesResponse {
     has_next: boolean
     has_prev: boolean
   }
-  error?: string
-}
-
-export interface IsRecipeSavedResponse {
-  success: boolean
-  is_saved?: boolean
   error?: string
 }
 
@@ -311,7 +305,7 @@ export const getUserRecipe = async (userId: string, recipeId: string): Promise<R
   }
 }
 
-export const isRecipeSavedForUser = async (userId: string, recipeId: string): Promise<IsRecipeSavedResponse> => {
+export const isRecipeSavedForUser = async (userId: string, recipeId: string): Promise<{ success: boolean; is_saved?: boolean; error?: string }> => {
   try {
     const response = await fetch(`${RECIPE_API_URL}/user/${userId}/recipe/${recipeId}/saved`, {
       method: 'GET',
@@ -334,3 +328,4 @@ export const isRecipeSavedForUser = async (userId: string, recipeId: string): Pr
     }
   }
 }
+

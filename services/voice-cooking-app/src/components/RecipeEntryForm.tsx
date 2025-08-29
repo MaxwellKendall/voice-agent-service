@@ -144,8 +144,8 @@ const RecipeEntryForm: React.FC<RecipeEntryFormProps> = ({ onSuccess, onSearchRe
           </button>
         </div>
         
-        <p className="text-xs text-gray-500">
-          Paste a URL to extract a recipe, or search with natural language like "quick pasta dishes" or "healthy breakfast"
+        <p className="text-xs mt-2 text-gray-500">
+          Import recipes from your favorite websites or search for recipes with natural language.
         </p>
       </form>
 
